@@ -2,7 +2,7 @@
 
 module "kms" {
   source = "../../../modules/kms"
-  
+
   alias_name  = "alias/${var.project}-${var.environment}-s3-key"
   description = "KMS key for ${var.environment} Data Lake S3 buckets"
 }

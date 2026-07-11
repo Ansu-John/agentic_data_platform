@@ -14,8 +14,8 @@ module "vpc" {
   cidr = var.cidr_block
 
   # Use the first 2 Availability Zones for high availability
-  azs             = slice(data.aws_availability_zones.available.names, 0, 2)
-  
+  azs = slice(data.aws_availability_zones.available.names, 0, 2)
+
   # Carve out subnets dynamically based on the VPC CIDR
   private_subnets = [for k, v in slice(data.aws_availability_zones.available.names, 0, 2) : cidrsubnet(var.cidr_block, 4, k)]
   public_subnets  = [for k, v in slice(data.aws_availability_zones.available.names, 0, 2) : cidrsubnet(var.cidr_block, 4, k + 4)]
@@ -39,18 +39,18 @@ module "vpc" {
 # VPC Gateway Endpoints for Data Lake Security & Cost Savings
 # ---------------------------------------------------------
 resource "aws_vpc_endpoint" "s3" {
-  vpc_id       = module.vpc.vpc_id
-  service_name = "com.amazonaws.${data.aws_region.current.name}.s3"
+  vpc_id          = module.vpc.vpc_id
+  service_name    = "com.amazonaws.${data.aws_region.current.name}.s3"
   route_table_ids = module.vpc.private_route_table_ids
-  
+
   tags = {
     Name = "${var.vpc_name}-s3-endpoint"
   }
 }
 
 resource "aws_vpc_endpoint" "dynamodb" {
-  vpc_id       = module.vpc.vpc_id
-  service_name = "com.amazonaws.${data.aws_region.current.name}.dynamodb"
+  vpc_id          = module.vpc.vpc_id
+  service_name    = "com.amazonaws.${data.aws_region.current.name}.dynamodb"
   route_table_ids = module.vpc.private_route_table_ids
 
   tags = {
