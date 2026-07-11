@@ -1,0 +1,41 @@
+# -------------------------------------------------------------------
+# Terraform Core
+# -------------------------------------------------------------------
+# Ignore local provider binaries and plugin downloads
+**/.terraform/*
+
+# Ignore local state files (CRITICAL for security)
+*.tfstate
+*.tfstate.*
+
+# Ignore crash logs
+crash.log
+crash.*.log
+
+# -------------------------------------------------------------------
+# Variables and Overrides
+# -------------------------------------------------------------------
+# Ignore sensitive variable files (e.g., secrets.tfvars)
+*.tfvars
+*.tfvars.json
+
+# Exception: Allow specific non-sensitive tfvars if you want them in version control
+# !terraform/environments/dev/01-foundation/terraform.tfvars
+
+# Ignore local override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Ignore CLI configuration files
+.terraformrc
+terraform.rc
+
+# -------------------------------------------------------------------
+# OS & IDE
+# -------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

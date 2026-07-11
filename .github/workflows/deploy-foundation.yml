@@ -1,0 +1,78 @@
+name: Deploy Phase 1 - Foundation
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'terraform/environments/dev/01-foundation/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'terraform/environments/dev/01-foundation/**'
+
+permissions:
+  id-token: write # Required for AWS OIDC
+  contents: read
+  pull-requests: write # Required to post plan comments
+
+env:
+  TF_WORKING_DIR: 'terraform/environments/dev/01-foundation'
+  AWS_REGION: 'ap-south-1'
+
+jobs:
+  validate-and-plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Format & Validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform fmt -check
+          terraform validate
+
+      # Phase 1 Requirement: tfsec blocks PRs if buckets are public/unversioned
+      - name: Security Scan (tfsec)
+        uses: aquasecurity/tfsec-pr-commenter-action@v1.2.0
+        with:
+          working_directory: ${{ env.TF_WORKING_DIR }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Terraform Plan
+        if: github.event_name == 'pull_request'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform plan -no-color -out=tfplan
+
+  apply:
+    needs: validate-and-plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: dev # Utilizes GitHub environments for manual approval if desired
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+      - name: Terraform Apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -auto-approve
