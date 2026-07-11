@@ -5,8 +5,8 @@
 **/.terraform/*
 
 # Ignore local state files (CRITICAL for security)
-*.tfstate
-*.tfstate.*
+#*.tfstate
+#*.tfstate.*
 
 # Ignore crash logs
 crash.log
