@@ -1,0 +1,5 @@
+# AWS SDK - Provided by Lambda runtime, but required for local development and testing
+boto3>=1.28.0
+botocore>=1.31.0
+
+# Future dependencies for Phase 3 (LangGraph/AI Orchestration) will go here
