@@ -16,7 +16,7 @@ module "ingest_trigger" {
 
   function_name = "${var.project}-${var.environment}-ingest-trigger"
   environment   = var.environment
-  source_dir    = "${path.module}/../../../../../src/lambda/ingest_trigger"
+  source_dir    = "${path.module}/../../../../src/lambda/ingest_trigger"
 
   # Dynamically pull the Bronze bucket name (index 0) from Phase 1 state
   trigger_bucket_name = data.terraform_remote_state.foundation.outputs.datalake_bucket_names[0]
