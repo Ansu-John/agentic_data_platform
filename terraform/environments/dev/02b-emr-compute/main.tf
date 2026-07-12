@@ -20,8 +20,8 @@ resource "aws_iam_role" "emr_execution_role" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
       Principal = { Service = "emr-serverless.amazonaws.com" }
     }]
   })
@@ -35,9 +35,9 @@ resource "aws_iam_role_policy" "emr_execution_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "DatalakeS3Access"
-        Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:ListBucket", "s3:PutObject", "s3:DeleteObject"]
+        Sid    = "DatalakeS3Access"
+        Effect = "Allow"
+        Action = ["s3:GetObject", "s3:ListBucket", "s3:PutObject", "s3:DeleteObject"]
         Resource = [
           "arn:aws:s3:::dataplatform-dev-s3-aps1-bronze",
           "arn:aws:s3:::dataplatform-dev-s3-aps1-bronze/*",
@@ -87,7 +87,10 @@ resource "aws_emrserverless_application" "spark_app" {
   }
 
   auto_start_configuration { enabled = true }
-  auto_stop_configuration  { enabled = true, idle_timeout_minutes = 15 }
+  auto_stop_configuration {
+    enabled              = true
+    idle_timeout_minutes = 15
+  }
 }
 
 # -------------------------------------------------------------------
@@ -99,8 +102,8 @@ resource "aws_iam_role" "step_functions_role" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
       Principal = { Service = "states.amazonaws.com" }
     }]
   })
@@ -146,7 +149,7 @@ resource "aws_sfn_state_machine" "ingestion_orchestrator" {
         Parameters = {
           ApplicationId    = aws_emrserverless_application.spark_app.id
           ExecutionRoleArn = aws_iam_role.emr_execution_role.arn
-          Name.$           = "$.job_name"
+          "Name.$"         = "$.job_name"
           JobDriver = {
             SparkSubmit = {
               EntryPoint = "local:///app/raw_to_iceberg.py"

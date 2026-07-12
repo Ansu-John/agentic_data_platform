@@ -54,7 +54,7 @@ module "ingest_trigger" {
   environment = var.environment
   vpc_id      = data.terraform_remote_state.foundation.outputs.vpc_id
   subnet_ids  = data.terraform_remote_state.foundation.outputs.private_subnet_ids
-  
+
   # Inject target variables into the enterprise trigger script
   environment_variables = {
     ENVIRONMENT       = var.environment
