@@ -24,7 +24,7 @@ module "ingest_trigger" {
   environment = var.environment
   vpc_id      = data.terraform_remote_state.foundation.outputs.vpc_id
   subnet_ids  = data.terraform_remote_state.foundation.outputs.private_subnet_ids
-  
+
   function_name       = "${var.project}-${var.environment}-ingest-trigger"
   source_dir          = "../../../../src/lambda/ingest_trigger"
   trigger_bucket_name = "dataplatform-dev-s3-aps1-bronze"
