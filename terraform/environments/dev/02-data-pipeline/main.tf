@@ -1,42 +1,5 @@
-terraform {
-  required_version = ">= 1.5.0"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-  backend "s3" {
-    bucket         = "dataplatform-dev-tfstate-bucket"
-    key            = "dev/02a-ingestion-catalog/terraform.tfstate"
-    region         = "ap-south-1"
-    dynamodb_table = "ai-catalog-terraform-locks"
-  }
-}
-
 provider "aws" {
   region = var.aws_region
-}
-
-# -------------------------------------------------------------------
-# Data Sources & Cross-Phase State Wiring
-# -------------------------------------------------------------------
-data "terraform_remote_state" "foundation" {
-  backend = "s3"
-  config = {
-    bucket = "dataplatform-dev-tfstate-bucket"
-    key    = "dev/01-foundation/terraform.tfstate"
-    region = var.aws_region
-  }
-}
-
-data "terraform_remote_state" "emr_compute" {
-  backend = "s3"
-  config = {
-    bucket = "dataplatform-dev-tfstate-bucket"
-    key    = "dev/02b-emr-compute/terraform.tfstate"
-    region = var.aws_region
-  }
 }
 
 # -------------------------------------------------------------------
