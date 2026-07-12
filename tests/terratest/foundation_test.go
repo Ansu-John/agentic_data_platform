@@ -23,7 +23,7 @@ func TestFoundationPhase1(t *testing.T) {
 	terraform.InitAndApply(t, terraformOptions)
 
 	// Assert S3 buckets exist and have versioning enabled
-	bronzeBucketName := "dataplatform-dev-s3-aps1-bronze"
+	bronzeBucketName := "dataplatform-dev-s3-ap-south-1-bronze"
 	aws.AssertS3BucketExists(t, awsRegion, bronzeBucketName)
 	
 	versioningStatus := aws.GetS3BucketVersioning(t, awsRegion, bronzeBucketName)

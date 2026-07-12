@@ -56,7 +56,7 @@ resource "aws_iam_role_policy" "emr_execution_policy" {
       {
         Effect   = "Allow"
         Action   = ["s3:GetObject", "s3:ListBucket", "s3:PutObject", "s3:DeleteObject"]
-        Resource = ["arn:aws:s3:::dataplatform-dev-s3-aps1-bronze*", "arn:aws:s3:::dataplatform-dev-s3-aps1-silver*"]
+        Resource = ["arn:aws:s3:::dataplatform-dev-s3-ap-south-1-bronze*", "arn:aws:s3:::dataplatform-dev-s3-ap-south-1-silver*"]
       },
       {
         Effect   = "Allow"
@@ -129,13 +129,13 @@ module "ingest_trigger" {
 
   function_name       = "${var.project}-${var.environment}-ingest-trigger"
   source_dir          = "../../../../src/lambda/ingest_trigger"
-  trigger_bucket_name = "dataplatform-dev-s3-aps1-bronze"
-  trigger_bucket_arn  = "arn:aws:s3:::dataplatform-dev-s3-aps1-bronze"
+  trigger_bucket_name = "dataplatform-dev-s3-ap-south-1-bronze"
+  trigger_bucket_arn  = "arn:aws:s3:::dataplatform-dev-s3-ap-south-1-bronze"
 
   environment_variables = {
     ENVIRONMENT       = var.environment
     STEP_FUNCTION_ARN = aws_sfn_state_machine.ingestion_orchestrator.arn
-    SILVER_BUCKET     = "dataplatform-dev-s3-aps1-silver"
+    SILVER_BUCKET     = "dataplatform-dev-s3-ap-south-1-silver"
   }
 }
 
@@ -153,18 +153,10 @@ resource "aws_iam_policy" "lambda_sfn_trigger_policy" {
 }
 
 resource "aws_s3_bucket_notification" "bronze_ingest_notification" {
-  bucket = "dataplatform-dev-s3-aps1-bronze"
+  bucket = "dataplatform-dev-s3-ap-south-1-bronze"
   lambda_function {
     lambda_function_arn = module.ingest_trigger.lambda_function_arn
     events              = ["s3:ObjectCreated:*"]
     filter_prefix       = "raw/"
   }
-}
-
-resource "aws_lambda_permission" "allow_s3_to_call_lambda" {
-  statement_id  = "AllowExecutionFromS3Bucket"
-  action        = "lambda:InvokeFunction"
-  function_name = module.ingest_trigger.lambda_function_name
-  principal     = "s3.amazonaws.com"
-  source_arn    = "arn:aws:s3:::dataplatform-dev-s3-aps1-bronze"
 }
