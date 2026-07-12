@@ -1,0 +1,61 @@
+name: Deploy Phase 2 - Data Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'terraform/environments/dev/02-data-pipeline/**'
+      - 'terraform/modules/**'
+      - 'src/**'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_WORKING_DIR: 'terraform/environments/dev/02-data-pipeline'
+  AWS_REGION: 'ap-south-1'
+  PROJECT: 'dataplatform'
+  ENVIRONMENT: 'dev'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionsRunnerRole
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+          
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Provision ECR Repository First (Targeted Apply)
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -target="aws_ecr_repository.spark_repo" -auto-approve
+
+      - name: Build, tag, and push Docker image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.PROJECT }}-${{ env.ENVIRONMENT }}-spark-jobs
+          IMAGE_TAG: latest
+        working-directory: src/spark
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Provision Remaining Infrastructure
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -auto-approve

@@ -1,3 +1,6 @@
+# Fetch current AWS account details for ARN construction if needed
+data "aws_caller_identity" "current" {}
+
 # Read outputs from Phase 1 Foundation
 data "terraform_remote_state" "foundation" {
   backend = "s3"
@@ -7,6 +10,3 @@ data "terraform_remote_state" "foundation" {
     region = var.aws_region
   }
 }
-
-# Fetch current AWS account details for ARN construction if needed
-data "aws_caller_identity" "current" {}
