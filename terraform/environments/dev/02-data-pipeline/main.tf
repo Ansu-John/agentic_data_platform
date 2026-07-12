@@ -2,14 +2,21 @@ provider "aws" {
   region = var.aws_region
 }
 
-# -------------------------------------------------------------------
-# Modules
-# -------------------------------------------------------------------
+# ===================================================================
+# 1. CATALOG & METADATA
+# ===================================================================
 module "glue_catalog" {
-  source      = "../../../modules/glue_catalog"
+  source = "../../../modules/glue_catalog"
+
+  # Base tags we added earlier
   project     = var.project
   environment = var.environment
+
+  # The missing arguments required by your module
+  database_name = "${var.project}_${var.environment}_ai_catalog"
+  description   = "Iceberg AI Catalog for the ${var.environment} environment"
 }
+
 
 module "ingest_trigger" {
   source      = "../../../modules/lambda_ingest"
