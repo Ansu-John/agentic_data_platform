@@ -92,6 +92,8 @@ jobs:
         run: terraform init
 
       - name: Provision ECR Repository First (Targeted Apply)
+        env:
+          TF_LOG: DEBUG
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform apply -target="aws_ecr_repository.spark_repo" -auto-approve
 
