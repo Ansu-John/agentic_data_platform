@@ -5,8 +5,8 @@
 **/.terraform/*
 
 # Ignore local state files (CRITICAL for security)
-#*.tfstate
-#*.tfstate.*
+*.tfstate
+*.tfstate.*
 
 # Ignore crash logs
 crash.log
@@ -16,8 +16,8 @@ crash.*.log
 # Variables and Overrides
 # -------------------------------------------------------------------
 # Ignore sensitive variable files (e.g., secrets.tfvars)
-*.tfvars
-*.tfvars.json
+#*.tfvars
+#*.tfvars.json
 
 # Exception: Allow specific non-sensitive tfvars if you want them in version control
 # !terraform/environments/dev/01-foundation/terraform.tfvars

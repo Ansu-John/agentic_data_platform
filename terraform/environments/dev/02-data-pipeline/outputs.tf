@@ -10,7 +10,6 @@ output "emr_application_id" {
   description = "The ID of the EMR Serverless Spark Application"
   value       = module.emr_serverless.application_id
 }
-
 output "emr_application_arn" {
   description = "The ARN of the EMR Serverless Spark Application"
   value       = module.emr_serverless.application_arn
