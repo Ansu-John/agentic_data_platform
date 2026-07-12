@@ -7,10 +7,17 @@ on:
       - 'terraform/environments/dev/02-data-pipeline/**'
       - 'terraform/modules/**'
       - 'src/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'terraform/environments/dev/02-data-pipeline/**'
+      - 'terraform/modules/**'
+      - 'src/**'
 
 permissions:
   id-token: write
   contents: read
+  pull-requests: write
 
 env:
   TF_WORKING_DIR: 'terraform/environments/dev/02-data-pipeline'
@@ -19,7 +26,49 @@ env:
   ENVIRONMENT: 'dev'
 
 jobs:
-  deploy:
+  # ===================================================================
+  # 1. QUALITY ASSURANCE & DRY RUN
+  # Runs on PRs and Pushes. Fails the build if syntax or state is broken.
+  # ===================================================================
+  validate-and-plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionsRunnerRole
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Format Check
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform fmt -check -diff
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate
+
+      # Only generate the speculative plan if this is a Pull Request
+      - name: Terraform Plan
+        if: github.event_name == 'pull_request'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform plan -no-color -out=tfplan
+
+  # ===================================================================
+  # 2. EXECUTION & ARTIFACT BUILD
+  # Runs ONLY when code is successfully merged into the 'main' branch.
+  # ===================================================================
+  apply:
+    needs: validate-and-plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: dev
     steps:
