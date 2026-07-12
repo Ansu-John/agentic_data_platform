@@ -1,11 +1,11 @@
 output "application_id" {
   description = "The ID of the EMR Serverless Application"
-  value       = module.emr_serverless.application_id
+  value       = aws_emrserverless_application.spark_app.id
 }
 
 output "application_arn" {
   description = "The ARN of the EMR Serverless Application"
-  value       = module.emr_serverless.application_arn
+  value       = aws_emrserverless_application.spark_app.arn
 }
 
 output "execution_role_arn" {
@@ -20,5 +20,5 @@ output "step_function_arn" {
 
 output "ecr_repository_url" {
   description = "The URL of the ECR repository for PySpark images"
-  value       = module.emr_serverless.ecr_repository_url
+  value       = aws_ecr_repository.spark_repo.repository_url
 }
