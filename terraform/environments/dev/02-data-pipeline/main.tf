@@ -24,11 +24,16 @@ module "ingest_trigger" {
   environment = var.environment
   vpc_id      = data.terraform_remote_state.foundation.outputs.vpc_id
   subnet_ids  = data.terraform_remote_state.foundation.outputs.private_subnet_ids
+  
+  function_name       = "${var.project}-${var.environment}-ingest-trigger"
+  source_dir          = "../../../../src/lambda/ingest_trigger"
+  trigger_bucket_name = "dataplatform-dev-s3-aps1-bronze"
+  trigger_bucket_arn  = "arn:aws:s3:::dataplatform-dev-s3-aps1-bronze"
 
   # Inject target variables into the enterprise trigger script
   environment_variables = {
     ENVIRONMENT       = var.environment
-    STEP_FUNCTION_ARN = data.terraform_remote_state.emr_compute.outputs.step_function_arn
+    STEP_FUNCTION_ARN = aws_sfn_state_machine.ingestion_orchestrator.arn
     SILVER_BUCKET     = "dataplatform-dev-s3-aps1-silver"
   }
 }
