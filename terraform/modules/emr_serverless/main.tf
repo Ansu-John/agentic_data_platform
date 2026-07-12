@@ -1,15 +1,18 @@
 resource "aws_emrserverless_application" "this" {
-  name          = var.app_name
-  release_label = "emr-7.0.0" # Use a modern EMR release for built-in Iceberg support
+  name          = "${var.project}-${var.environment}-spark-engine"
+  release_label = "emr-7.0.0"
   type          = "SPARK"
 
-  network_configuration {
-    subnet_ids = var.private_subnet_ids
-    # EMR Serverless requires a security group to communicate within the VPC
-    security_group_ids = [aws_security_group.emr_sg.id]
+  # Binds the EMR compute engine to your custom PySpark Docker container
+  image_configuration {
+    image_uri = "${var.ecr_repository_url}:latest"
   }
 
-  # Define auto-start and auto-stop to save costs during development
+  network_configuration {
+    subnet_ids         = var.subnet_ids
+    security_group_ids = var.security_group_ids
+  }
+
   auto_start_configuration {
     enabled = true
   }
@@ -17,23 +20,5 @@ resource "aws_emrserverless_application" "this" {
   auto_stop_configuration {
     enabled              = true
     idle_timeout_minutes = 15
-  }
-
-  tags = {
-    Environment = var.environment
-    Module      = "emr_serverless"
-  }
-}
-
-resource "aws_security_group" "emr_sg" {
-  name        = "${var.app_name}-sg"
-  description = "Security group for EMR Serverless"
-  vpc_id      = var.vpc_id
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
   }
 }
