@@ -18,8 +18,8 @@ resource "aws_iam_role" "emr_execution_role" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
       Principal = { Service = "emr-serverless.amazonaws.com" }
     }]
   })
@@ -32,19 +32,19 @@ resource "aws_iam_policy" "emr_data_access" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "S3DataLakeAccess"
-        Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]
+        Sid    = "S3DataLakeAccess"
+        Effect = "Allow"
+        Action = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]
         Resource = [
           "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names[0]}*", # Bronze
           "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names[1]}*"  # Silver
         ]
       },
       {
-        Sid      = "GlueCatalogAccess"
-        Effect   = "Allow"
-        Action   = [
-          "glue:GetDatabase", "glue:CreateDatabase", 
+        Sid    = "GlueCatalogAccess"
+        Effect = "Allow"
+        Action = [
+          "glue:GetDatabase", "glue:CreateDatabase",
           "glue:GetTable", "glue:CreateTable", "glue:UpdateTable",
           "glue:GetPartition", "glue:CreatePartition", "glue:BatchCreatePartition"
         ]
