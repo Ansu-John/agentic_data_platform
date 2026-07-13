@@ -61,6 +61,8 @@ module "emr_serverless" {
   ecr_repository_url = aws_ecr_repository.spark_repo.repository_url
   subnet_ids         = data.terraform_remote_state.foundation.outputs.private_subnet_ids
   security_group_ids = [aws_security_group.emr_sg.id]
+  # Pass the root variable down into the module
+  image_tag = var.image_tag
 }
 
 resource "aws_iam_role" "emr_execution_role" {

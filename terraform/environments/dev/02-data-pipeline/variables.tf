@@ -12,3 +12,8 @@ variable "project" {
   description = "The overarching project name for resource tagging and naming"
   type        = string
 }
+
+variable "image_tag" {
+  description = "The Docker image tag deployed from GitHub Actions"
+  type        = string
+}
