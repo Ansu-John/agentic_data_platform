@@ -152,11 +152,15 @@ resource "aws_iam_policy" "lambda_sfn_trigger_policy" {
   })
 }
 
-resource "aws_s3_bucket_notification" "bronze_ingest_notification" {
+resource "aws_s3_bucket_notification" "bronze_ingest_notification" { # Note: Ensure this bucket name matches exactly what you created!
   bucket = "dataplatform-dev-s3-ap-south-1-bronze"
+
   lambda_function {
     lambda_function_arn = module.ingest_trigger.lambda_function_arn
     events              = ["s3:ObjectCreated:*"]
     filter_prefix       = "raw/"
   }
+
+  # THE MAGIC FIX: Forces Terraform to wait for the Lambda permissions to attach
+  depends_on = [module.ingest_trigger]
 }
