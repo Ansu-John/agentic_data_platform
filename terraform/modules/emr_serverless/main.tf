@@ -3,9 +3,9 @@ resource "aws_emrserverless_application" "this" {
   release_label = "emr-7.0.0"
   type          = "SPARK"
 
-  # Binds the EMR compute engine to your custom PySpark Docker container
+  # Let Terraform dynamically manage the tag
   image_configuration {
-    image_uri = "${var.ecr_repository_url}:latest"
+    image_uri = "${var.ecr_repository_url}:${var.image_tag}"
   }
 
   network_configuration {

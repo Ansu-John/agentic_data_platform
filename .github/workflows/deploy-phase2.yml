@@ -96,7 +96,7 @@ jobs:
           TF_LOG: DEBUG
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform apply -target="aws_ecr_repository.spark_repo" -auto-approve -input=false
-
+          
       - name: Build, tag, and push Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -107,20 +107,11 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
-      - name: Update EMR Serverless Application Image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ env.PROJECT }}-${{ env.ENVIRONMENT }}-spark-jobs
-          IMAGE_TAG: ${{ github.sha }}
-          PARAMETER_PATH: "/datacrew/${{ env.ENVIRONMENT }}/emr_app_id"
-        run: |
-          # Fetch the ID from AWS Parameter Store
-          EMR_APP_ID=$(aws ssm get-parameter --name "$PARAMETER_PATH" --query "Parameter.Value" --output text)
-          
-          aws emr-serverless update-application \
-            --application-id $EMR_APP_ID \
-            --image-configuration "{\\"imageUri\\": \\"$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG\\"}"
+      # The AWS CLI step is completely removed!
 
       - name: Provision Remaining Infrastructure
+        env:
+          # This automatically passes the tag to var.image_tag in Terraform
+          TF_VAR_image_tag: ${{ github.sha }} 
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform apply -auto-approve
