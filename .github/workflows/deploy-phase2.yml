@@ -108,17 +108,16 @@ jobs:
           # 1. Build the image
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           
-          # 2. VERIFICATION CHECK: List the contents of /app
+          # 2. VERIFICATION CHECK: Bypass EMR entrypoint and list /app contents
           echo "Verifying contents of /app in the built image:"
-          docker run --rm $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ls -la /app
+          docker run --rm --entrypoint /bin/bash $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -c "ls -la /app"
           
-          # 3. VERIFICATION CHECK: Specifically check for the Python script
-          # If this file is missing, the 'ls' command will fail and stop the pipeline here.
-          docker run --rm $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ls -la /app/raw_to_iceberg.py
+          # 3. VERIFICATION CHECK: Check for the Python script
+          docker run --rm --entrypoint /bin/bash $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -c "ls -la /app/raw_to_iceberg.py"
           
-          # 4. Push the image (only runs if the checks above succeed)
+          # 4. Push the image
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
+          
       - name: Force Stop EMR App for Terraform Update
         env:
           APP_NAME: "${{ env.PROJECT }}-${{ env.ENVIRONMENT }}-spark-engine"
