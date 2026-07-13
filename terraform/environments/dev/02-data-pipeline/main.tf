@@ -20,6 +20,27 @@ resource "aws_ecr_repository" "spark_repo" {
   force_delete         = true
 }
 
+resource "aws_ecr_repository_policy" "emr_ecr_policy" {
+  repository = aws_ecr_repository.spark_repo.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowEMRServerlessAccess"
+        Effect = "Allow"
+        Principal = {
+          Service = "emr-serverless.amazonaws.com"
+        }
+        Action = [
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer"
+        ]
+      }
+    ]
+  })
+}
+
 resource "aws_security_group" "emr_sg" {
   name   = "${var.project}-${var.environment}-emr-sg"
   vpc_id = data.terraform_remote_state.foundation.outputs.vpc_id
