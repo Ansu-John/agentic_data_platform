@@ -79,16 +79,41 @@ resource "aws_iam_role_policy" "emr_execution_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:ListBucket", "s3:PutObject", "s3:DeleteObject"]
-        Resource = ["arn:aws:s3:::dataplatform-dev-s3-aps1-bronze*", "arn:aws:s3:::dataplatform-dev-s3-aps1-silver*"]
-      },
+			"Sid": "BucketLevelList",
+			"Action": [
+				"s3:ListBucket"
+			],
+			"Effect": "Allow",
+			"Resource": [
+				"arn:aws:s3:::dataplatform-dev-s3-ap-south-1-bronze",
+				"arn:aws:s3:::dataplatform-dev-s3-ap-south-1-silver"
+			]
+		},
+		{
+			"Sid": "ObjectLevelReadWrite",
+			"Action": [
+				"s3:GetObject",
+				"s3:PutObject",
+				"s3:DeleteObject"
+			],
+			"Effect": "Allow",
+			"Resource": [
+				"arn:aws:s3:::dataplatform-dev-s3-ap-south-1-bronze/*",
+				"arn:aws:s3:::dataplatform-dev-s3-ap-south-1-silver/*"
+			]
+		},
       {
         Effect   = "Allow"
-        Action   = ["glue:GetDatabase", "glue:CreateDatabase", "glue:GetTable", "glue:CreateTable", "glue:UpdateTable", "glue:GetPartitions", "glue:BatchCreatePartition"]
+        Action   = [
+          "glue:GetDatabase", 
+          "glue:CreateDatabase", 
+          "glue:GetTable", 
+          "glue:CreateTable", 
+          "glue:UpdateTable", 
+          "glue:GetPartitions", 
+          "glue:BatchCreatePartition"]
         Resource = ["*"]
       },
-      # --- NEW BLOCK: Allow EMR to pull the custom Docker image from ECR ---
       {
         Effect = "Allow"
         Action = [
@@ -99,7 +124,19 @@ resource "aws_iam_role_policy" "emr_execution_policy" {
           "ecr:DescribeImages"
         ]
         Resource = ["*"]
-      }
+      },
+      {
+			Sid = "KMSAccess",
+			Action = [
+				"kms:Decrypt",
+				"kms:GenerateDataKey",
+				"kms:DescribeKey"
+			],
+			Effect = "Allow",
+			Resource = [
+				data.aws_kms_alias.s3_kms_key.target_key_arn
+			]
+		}
     ]
   })
 }
