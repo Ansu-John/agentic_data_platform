@@ -101,11 +101,25 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ env.PROJECT }}-${{ env.ENVIRONMENT }}-spark-jobs
-          IMAGE_TAG: latest
+          IMAGE_TAG: ${{ github.sha }}
         working-directory: src/spark
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          
+      - name: Update EMR Serverless Application Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.PROJECT }}-${{ env.ENVIRONMENT }}-spark-jobs
+          IMAGE_TAG: ${{ github.sha }}
+          PARAMETER_PATH: "/datacrew/${{ env.ENVIRONMENT }}/emr_app_id"
+        run: |
+          # Fetch the ID from AWS Parameter Store
+          EMR_APP_ID=$(aws ssm get-parameter --name "$PARAMETER_PATH" --query "Parameter.Value" --output text)
+          
+          aws emr-serverless update-application \
+            --application-id $EMR_APP_ID \
+            --image-configuration "{\\"imageUri\\": \\"$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG\\"}"
 
       - name: Provision Remaining Infrastructure
         working-directory: ${{ env.TF_WORKING_DIR }}
