@@ -79,39 +79,39 @@ resource "aws_iam_role_policy" "emr_execution_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-			"Sid": "BucketLevelList",
-			"Action": [
-				"s3:ListBucket"
-			],
-			"Effect": "Allow",
-			"Resource": [
-				"arn:aws:s3:::dataplatform-dev-s3-ap-south-1-bronze",
-				"arn:aws:s3:::dataplatform-dev-s3-ap-south-1-silver"
-			]
-		},
-		{
-			"Sid": "ObjectLevelReadWrite",
-			"Action": [
-				"s3:GetObject",
-				"s3:PutObject",
-				"s3:DeleteObject"
-			],
-			"Effect": "Allow",
-			"Resource": [
-				"arn:aws:s3:::dataplatform-dev-s3-ap-south-1-bronze/*",
-				"arn:aws:s3:::dataplatform-dev-s3-ap-south-1-silver/*"
-			]
-		},
+        "Sid" : "BucketLevelList",
+        "Action" : [
+          "s3:ListBucket"
+        ],
+        "Effect" : "Allow",
+        "Resource" : [
+          "arn:aws:s3:::dataplatform-dev-s3-ap-south-1-bronze",
+          "arn:aws:s3:::dataplatform-dev-s3-ap-south-1-silver"
+        ]
+      },
       {
-        Effect   = "Allow"
-        Action   = [
-          "glue:GetDatabase", 
-          "glue:CreateDatabase", 
-          "glue:GetTable", 
-          "glue:CreateTable", 
-          "glue:UpdateTable", 
-          "glue:GetPartitions", 
-          "glue:BatchCreatePartition"]
+        "Sid" : "ObjectLevelReadWrite",
+        "Action" : [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ],
+        "Effect" : "Allow",
+        "Resource" : [
+          "arn:aws:s3:::dataplatform-dev-s3-ap-south-1-bronze/*",
+          "arn:aws:s3:::dataplatform-dev-s3-ap-south-1-silver/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "glue:GetDatabase",
+          "glue:CreateDatabase",
+          "glue:GetTable",
+          "glue:CreateTable",
+          "glue:UpdateTable",
+          "glue:GetPartitions",
+        "glue:BatchCreatePartition"]
         Resource = ["*"]
       },
       {
@@ -126,17 +126,17 @@ resource "aws_iam_role_policy" "emr_execution_policy" {
         Resource = ["*"]
       },
       {
-			Sid = "KMSAccess",
-			Action = [
-				"kms:Decrypt",
-				"kms:GenerateDataKey",
-				"kms:DescribeKey"
-			],
-			Effect = "Allow",
-			Resource = [
-				data.aws_kms_alias.s3_kms_key.target_key_arn
-			]
-		}
+        Sid = "KMSAccess",
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+          "kms:DescribeKey"
+        ],
+        Effect = "Allow",
+        Resource = [
+          data.aws_kms_alias.s3_kms_key.target_key_arn
+        ]
+      }
     ]
   })
 }

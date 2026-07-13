@@ -26,5 +26,5 @@ data "terraform_remote_state" "emr_compute" {
 
 data "aws_kms_alias" "s3_kms_key" {
   # Replace with the actual alias name used in your AWS account
-  name = "alias/${var.project}-${var.environment}-s3-key" 
+  name = "alias/${var.project}-${var.environment}-s3-key"
 }
