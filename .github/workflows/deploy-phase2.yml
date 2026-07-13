@@ -105,10 +105,47 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         working-directory: src/spark
         run: |
+          # 1. Build the image
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
-      # The AWS CLI step is completely removed!
+          # 2. VERIFICATION CHECK: List the contents of /app
+          echo "Verifying contents of /app in the built image:"
+          docker run --rm $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ls -la /app
+          
+          # 3. VERIFICATION CHECK: Specifically check for the Python script
+          # If this file is missing, the 'ls' command will fail and stop the pipeline here.
+          docker run --rm $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ls -la /app/raw_to_iceberg.py
+          
+          # 4. Push the image (only runs if the checks above succeed)
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Force Stop EMR App for Terraform Update
+        env:
+          APP_NAME: "${{ env.PROJECT }}-${{ env.ENVIRONMENT }}-spark-engine"
+        run: |
+          # Find the app ID
+          APP_ID=$(aws emr-serverless list-applications --query "applications[?name=='$APP_NAME'].id" --output text)
+          
+          if [ "$APP_ID" != "None" ] && [ -n "$APP_ID" ]; then
+            STATE=$(aws emr-serverless get-application --application-id $APP_ID --query "application.state" --output text)
+            if [ "$STATE" == "STARTED" ] || [ "$STATE" == "STARTING" ]; then
+              echo "Application is $STATE. Stopping it to allow Terraform updates..."
+              aws emr-serverless stop-application --application-id $APP_ID
+              
+              # Wait for it to fully stop (checking every 10 seconds)
+              while true; do
+                CURRENT_STATE=$(aws emr-serverless get-application --application-id $APP_ID --query "application.state" --output text)
+                if [ "$CURRENT_STATE" == "STOPPED" ]; then
+                  echo "Application successfully stopped."
+                  break
+                fi
+                echo "Still stopping... current state is $CURRENT_STATE"
+                sleep 10
+              done
+            else
+              echo "Application is already stopped or stopping ($STATE)."
+            fi
+          fi
 
       - name: Provision Remaining Infrastructure
         working-directory: ${{ env.TF_WORKING_DIR }}
