@@ -1,132 +1,165 @@
 import json
 import os
-import logging
-import urllib.parse
-from typing import Dict, Any, List
-
 import boto3
-from botocore.config import Config
+import uuid
+import logging
+from typing import Dict, Any, Tuple
 from botocore.exceptions import ClientError
 
-# -------------------------------------------------------------------
-# 1. Initialization & Configuration (Runs on cold start)
-# -------------------------------------------------------------------
-# Configure structured logging
+# ==============================================================================
+# 1. ENTERPRISE OBSERVABILITY SETUP
+# ==============================================================================
+class JSONFormatter(logging.Formatter):
+    """Custom formatter to output structured JSON logs for Datadog/Splunk indexing."""
+    def format(self, record: logging.LogRecord) -> str:
+        log_entry = {
+            "level": record.levelname,
+            "message": record.getMessage(),
+            "logger": record.name,
+        }
+        if hasattr(record, "custom_fields"):
+            log_entry.update(record.custom_fields)
+        if record.exc_info:
+            log_entry["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log_entry)
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+# Clear default AWS handlers to prevent duplicate logging
+if logger.handlers:
+    for handler in logger.handlers:
+        logger.removeHandler(handler)
+        
+json_handler = logging.StreamHandler()
+json_handler.setFormatter(JSONFormatter())
+logger.addHandler(json_handler)
 
-# Retrieve and validate environment variables
-ENVIRONMENT = os.environ.get("ENVIRONMENT")
-if not ENVIRONMENT:
-    logger.error("CRITICAL: ENVIRONMENT variable is not set.")
-    raise ValueError("Missing required environment variable: ENVIRONMENT")
 
-# Configure Boto3 client with aggressive timeouts and exponential backoff
-# Best practice to prevent Lambda from hanging and billing for idle time
-BOTO_CONFIG = Config(
-    retries={"max_attempts": 3, "mode": "standard"},
-    connect_timeout=5,
-    read_timeout=15
-)
+# ==============================================================================
+# 2. COLD-START INITIALIZATION & VALIDATION (Fail-Fast)
+# ==============================================================================
+try:
+    SFN_ARN = os.environ['STEP_FUNCTION_ARN']
+    SILVER_BUCKET = os.environ['SILVER_BUCKET']
+    ENVIRONMENT = os.environ.get('ENVIRONMENT', 'dev')
+    PROJECT = os.environ.get('PROJECT', 'dataplatform')
+except KeyError as e:
+    logger.critical("Fatal: Missing required environment variable", extra={"custom_fields": {"missing_var": str(e)}})
+    raise RuntimeError(f"Initialization failed due to missing environment variable: {e}")
 
-# Initialize AWS clients outside the handler to reuse connection pools across warm starts
-# (e.g., sfn_client = boto3.client('stepfunctions', config=BOTO_CONFIG))
+# Initialize boto3 clients globally to reuse connection pools across warm invocations
+sfn_client = boto3.client('stepfunctions')
 
-# -------------------------------------------------------------------
-# 2. Helper Functions
-# -------------------------------------------------------------------
-def parse_s3_event(event: Dict[str, Any]) -> List[Dict[str, str]]:
+
+# ==============================================================================
+# 3. DOMAIN LOGIC
+# ==============================================================================
+def parse_s3_event(event: Dict[str, Any]) -> Tuple[str, str, str]:
     """
-    Safely extracts bucket names and object keys from an S3 event payload.
+    Extracts and validates S3 bucket, key, and logical entity name from the event.
     """
-    records = event.get("Records", [])
-    if not records:
-        logger.warning("Received event with no 'Records' array. Ignoring.")
-        return []
-
-    parsed_files = []
-    for record in records:
-        try:
-            bucket = record["s3"]["bucket"]["name"]
-            # S3 replaces spaces with '+', so we must unquote it safely
-            key = urllib.parse.unquote_plus(record["s3"]["object"]["key"], encoding="utf-8")
-            parsed_files.append({"bucket": bucket, "key": key})
-        except KeyError as e:
-            logger.error(f"Malformed S3 event record. Missing key: {str(e)}", exc_info=True)
-            continue
+    try:
+        record = event['Records'][0]
+        bucket = record['s3']['bucket']['name']
+        key = record['s3']['object']['key']
+        
+        # Expected pattern: raw/{entity}/{filename}.json
+        parts = key.split('/')
+        if len(parts) < 2:
+            raise ValueError(f"S3 Key '{key}' does not match expected folder structure 'raw/entity/file'")
             
-    return parsed_files
+        entity = parts[1]
+        return bucket, key, entity
+    except KeyError as e:
+        raise ValueError(f"Malformed S3 event payload. Missing key: {e}")
 
-# -------------------------------------------------------------------
-# 3. Main Handler
-# -------------------------------------------------------------------
+
+# ==============================================================================
+# 4. MAIN HANDLER
+# ==============================================================================
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    Triggered by S3 ObjectCreated events. 
-    Intercepts raw data drops and orchestrates downstream AI evaluation.
+    AWS Lambda entry point. Orchestrates the transition from S3 event to Step Function.
     """
-    # Log the exact invocation ID for distributed tracing
     request_id = context.aws_request_id
-    logger.info(json.dumps({
-        "message": "Lambda invoked",
-        "request_id": request_id,
-        "environment": ENVIRONMENT
-    }))
-
+    
+    logger.info("Lambda invoked", extra={"custom_fields": {
+        "aws_request_id": request_id,
+        "event_source": "s3_trigger"
+    }})
+    
     try:
-        # 1. Parse the incoming payload
-        files_to_process = parse_s3_event(event)
+        # 1. Parse Event
+        bucket, key, entity = parse_s3_event(event)
         
-        if not files_to_process:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": "No valid S3 records found in event"})
-            }
-
-        # 2. Process each file
-        for file_data in files_to_process:
-            bucket = file_data["bucket"]
-            key = file_data["key"]
-            
-            logger.info(json.dumps({
-                "message": "Processing file drop",
-                "bucket": bucket,
-                "key": key,
-                "status": "INITIATED"
-            }))
-            
-            # TODO: Phase 3 Integration
-            # Example: Trigger AWS Step Functions to start LangGraph evaluation
-            # sfn_client.start_execution(
-            #     stateMachineArn=os.environ['STEP_FUNCTION_ARN'],
-            #     name=f"Ingest-{request_id}",
-            #     input=json.dumps({"bucket": bucket, "key": key})
-            # )
-
-        # 3. Return standardized success response
+        logger.info("S3 event parsed successfully", extra={"custom_fields": {
+            "bucket": bucket,
+            "key": key,
+            "entity": entity,
+            "aws_request_id": request_id
+        }})
+        
+        # 2. Construct Step Function Payload
+        job_name = f"ingest-{entity}-{uuid.uuid4().hex[:8]}"
+        table_name = f"silver_{entity}"
+        
+        sfn_input = {
+            "job_name": job_name,
+            "source_path": f"s3://{bucket}/{key}",
+            "db_name": f"{PROJECT}_{ENVIRONMENT}_ai_catalog",
+            "table_name": table_name,
+            "silver_bucket": SILVER_BUCKET,
+            "merge_key": "event_id",
+            "trigger_request_id": request_id  # Tracing lineage
+        }
+        
+        # 3. Execute Orchestrator
+        logger.info("Triggering Step Function", extra={"custom_fields": {
+            "step_function_arn": SFN_ARN,
+            "payload": sfn_input
+        }})
+        
+        response = sfn_client.start_execution(
+            stateMachineArn=SFN_ARN,
+            name=job_name,
+            input=json.dumps(sfn_input)
+        )
+        
+        execution_arn = response['executionArn']
+        logger.info("Step Function execution started successfully", extra={"custom_fields": {
+            "execution_arn": execution_arn,
+            "aws_request_id": request_id
+        }})
+        
         return {
-            "statusCode": 200,
-            "body": json.dumps({
-                "message": f"Successfully processed {len(files_to_process)} file(s)",
-                "request_id": request_id
+            'statusCode': 200,
+            'body': json.dumps({
+                'message': 'Ingestion pipeline triggered successfully',
+                'execution_arn': execution_arn
             })
         }
-
-    except ClientError as e:
-        # Catch specific AWS API errors (e.g., permissions issues, throttling)
-        error_code = e.response['Error']['Code']
-        logger.error(json.dumps({
-            "message": "AWS API Error",
-            "error_code": error_code,
-            "details": str(e)
-        }))
-        raise e
-
+        
+    except ValueError as ve:
+        # Client-side / Payload errors
+        logger.error("Validation error processing event", extra={"custom_fields": {
+            "aws_request_id": request_id,
+            "error_type": "ValueError"
+        }}, exc_info=True)
+        return {'statusCode': 400, 'body': json.dumps(f"Bad Request: {str(ve)}")}
+        
+    except ClientError as ce:
+        # AWS API / Permission errors
+        error_code = ce.response['Error']['Code']
+        logger.error(f"AWS API Error: {error_code}", extra={"custom_fields": {
+            "aws_request_id": request_id,
+            "aws_error_code": error_code
+        }}, exc_info=True)
+        return {'statusCode': 502, 'body': json.dumps(f"Upstream AWS Error: {error_code}")}
+        
     except Exception as e:
-        # Catch-all for unexpected runtime errors to ensure they hit the DLQ if configured
-        logger.critical(json.dumps({
-            "message": "Unexpected runtime error during execution",
-            "error_type": type(e).__name__,
-            "details": str(e)
-        }), exc_info=True)
-        raise e
+        # Unhandled execution errors
+        logger.error("Unhandled exception during execution", extra={"custom_fields": {
+            "aws_request_id": request_id,
+            "error_type": type(e).__name__
+        }}, exc_info=True)
+        return {'statusCode': 500, 'body': json.dumps("Internal Server Error")}
