@@ -33,7 +33,9 @@ resource "aws_ecr_repository_policy" "emr_ecr_policy" {
           Service = "emr-serverless.amazonaws.com"
         }
         Action = [
+          "ecr:BatchCheckLayerAvailability",
           "ecr:BatchGetImage",
+          "ecr:DescribeImages",
           "ecr:GetDownloadUrlForLayer"
         ]
       }
@@ -91,7 +93,8 @@ resource "aws_iam_role_policy" "emr_execution_policy" {
           "ecr:GetAuthorizationToken",
           "ecr:BatchCheckLayerAvailability",
           "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage"
+          "ecr:BatchGetImage",
+          "ecr:DescribeImages"
         ]
         Resource = ["*"]
       }
