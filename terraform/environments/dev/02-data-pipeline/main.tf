@@ -143,8 +143,8 @@ resource "aws_sfn_state_machine" "ingestion_orchestrator" {
           "Name.$"         = "$.job_name"
           JobDriver = {
             SparkSubmit = {
-              EntryPoint          = "local:////home/hadoop/raw_to_iceberg.py"
-              EntryPointArguments = ["--source-path", "$.source_path", "--db-name", "$.db_name", "--table-name", "$.table_name", "--silver-bucket", "$.silver_bucket", "--merge-key", "$.merge_key"]
+              EntryPoint              = "local:///home/hadoop/raw_to_iceberg.py"
+              "EntryPointArguments.$" = "States.Array('--source-path', $.source_path, '--db-name', $.db_name, '--table-name', $.table_name, '--silver-bucket', $.silver_bucket, '--merge-key', $.merge_key)"
             }
           }
         }

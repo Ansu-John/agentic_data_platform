@@ -108,8 +108,8 @@ jobs:
           # 1. Build the image
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           
-          # 2. VERIFICATION CHECK: Bypass EMR entrypoint and list /app contents
-          echo "Verifying contents of /app in the built image:"
+          # 2. VERIFICATION CHECK: Bypass EMR entrypoint and list /home/hadoop contents
+          echo "Verifying contents of /home/hadoop in the built image:"
           docker run --rm --entrypoint /bin/bash $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -c "ls -la /home/hadoop"
           
           # 3. VERIFICATION CHECK: Check for the Python script
