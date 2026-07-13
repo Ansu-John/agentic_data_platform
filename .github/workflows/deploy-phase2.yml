@@ -24,6 +24,7 @@ env:
   AWS_REGION: 'ap-south-1'
   PROJECT: 'dataplatform'
   ENVIRONMENT: 'dev'
+  TF_VAR_image_tag: ${{ github.sha }}
 
 jobs:
   # ===================================================================
@@ -110,8 +111,5 @@ jobs:
       # The AWS CLI step is completely removed!
 
       - name: Provision Remaining Infrastructure
-        env:
-          # This automatically passes the tag to var.image_tag in Terraform
-          TF_VAR_image_tag: ${{ github.sha }} 
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform apply -auto-approve
