@@ -63,9 +63,11 @@ resource "aws_lambda_function" "this" {
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   timeout          = 15
 
-  environment {
-    variables = {
-      ENVIRONMENT = var.environment
+  # THE UPGRADE: Replaced the hardcoded block with a dynamic map reader
+  dynamic "environment" {
+    for_each = length(var.environment_variables) > 0 ? [1] : []
+    content {
+      variables = var.environment_variables
     }
   }
 }
