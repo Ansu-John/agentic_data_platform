@@ -26,5 +26,4 @@ variable "security_group_ids" {
 variable "image_tag" {
   description = "The Docker image tag to deploy to EMR Serverless (usually the Git SHA)"
   type        = string
-  default     = "latest" # Failsafe default for local testing
 }
