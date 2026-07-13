@@ -118,7 +118,7 @@ resource "aws_iam_role_policy" "sfn_emr_policy" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      { Effect = "Allow", Action = ["emr-serverless:StartJobRun", "emr-serverless:CancelJobRun", "emr-serverless:GetJobRun"], Resource = [module.emr_serverless.application_arn] },
+      { Effect = "Allow", Action = ["emr-serverless:StartJobRun", "emr-serverless:CancelJobRun", "emr-serverless:GetJobRun"], Resource = [module.emr_serverless.application_arn, "${module.emr_serverless.application_arn}/jobruns/*"] },
       { Effect = "Allow", Action = ["iam:PassRole"], Resource = [aws_iam_role.emr_execution_role.arn] },
       { Effect = "Allow", Action = ["events:PutTargets", "events:PutRule", "events:DescribeRule"], Resource = ["arn:aws:events:${var.aws_region}:${data.aws_caller_identity.current.account_id}:rule/StepFunctions*"] }
     ]
