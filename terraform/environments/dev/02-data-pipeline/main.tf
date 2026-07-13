@@ -56,11 +56,22 @@ resource "aws_iam_role_policy" "emr_execution_policy" {
       {
         Effect   = "Allow"
         Action   = ["s3:GetObject", "s3:ListBucket", "s3:PutObject", "s3:DeleteObject"]
-        Resource = ["arn:aws:s3:::dataplatform-dev-s3-ap-south-1-bronze*", "arn:aws:s3:::dataplatform-dev-s3-ap-south-1-silver*"]
+        Resource = ["arn:aws:s3:::dataplatform-dev-s3-aps1-bronze*", "arn:aws:s3:::dataplatform-dev-s3-aps1-silver*"]
       },
       {
         Effect   = "Allow"
         Action   = ["glue:GetDatabase", "glue:CreateDatabase", "glue:GetTable", "glue:CreateTable", "glue:UpdateTable", "glue:GetPartitions", "glue:BatchCreatePartition"]
+        Resource = ["*"]
+      },
+      # --- NEW BLOCK: Allow EMR to pull the custom Docker image from ECR ---
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ]
         Resource = ["*"]
       }
     ]
