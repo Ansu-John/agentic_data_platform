@@ -12,6 +12,7 @@ on:
     paths:
       - "src/agent/**"
       - "terraform/environments/dev/03-ai-dq-agent/**"
+      - ".github/workflows/deploy_phase3.yml"
 
 # Required to exchange GitHub OIDC tokens for AWS temporary credentials
 permissions:
@@ -47,16 +48,16 @@ jobs:
         run: uv sync --frozen
 
       - name: Type Checking (MyPy)
-        working-directory: .
-        run: uv run mypy . --strict
+        working-directory: src/agent
+        run: uv run mypy ../.. --strict
 
       - name: Linting (Ruff)
         working-directory: src/agent
         run: uv run ruff check .
 
       - name: Run Integration & Unit Tests
-        working-directory: .
-        run: uv run pytest tests/ -v
+        working-directory: src/agent
+        run: uv run pytest ../../tests/ -v
 
   build-and-push-ecr:
     name: Build Hardened Container
