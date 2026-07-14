@@ -49,7 +49,7 @@ jobs:
 
       - name: Type Checking (MyPy)
         working-directory: src/agent
-        run: uv run mypy ../.. --strict --explicit-package-bases
+        run: uv run mypy . --strict --explicit-package-bases
 
       - name: Linting (Ruff)
         working-directory: src/agent
