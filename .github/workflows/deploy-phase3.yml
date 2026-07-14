@@ -48,16 +48,18 @@ jobs:
         run: uv sync --frozen
 
       - name: Type Checking (MyPy)
-        working-directory: src/agent
-        run: uv run mypy . --strict --explicit-package-bases
+        working-directory: .
+        run: src/agent/.venv/bin/mypy src/agent --strict
 
       - name: Linting (Ruff)
         working-directory: src/agent
         run: uv run ruff check .
 
       - name: Run Integration & Unit Tests
-        working-directory: src/agent
-        run: uv run pytest ../../tests/ -v
+        working-directory: .
+        env:
+          PYTHONPATH: .
+        run: src/agent/.venv/bin/pytest tests/ -v
 
   build-and-push-ecr:
     name: Build Hardened Container
