@@ -1,4 +1,4 @@
-name: Deploy Phase 3 AI Governance Platform
+name: Deploy Phase 3 - AI Governance Platform
 
 on:
   push:
