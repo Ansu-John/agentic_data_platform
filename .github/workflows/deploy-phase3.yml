@@ -60,6 +60,7 @@ jobs:
         env:
           PYTHONPATH: .
         run: src/agent/.venv/bin/pytest tests/ -v
+        
 
   build-and-push-ecr:
     name: Build Hardened Container

@@ -1,6 +1,6 @@
 import os
 import pytest
-from typing import Generator
+from typing import Any, Generator
 from moto import mock_aws
 import boto3
 
