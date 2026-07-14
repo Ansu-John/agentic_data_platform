@@ -1,0 +1,10 @@
+default_stages: [pre-commit]
+repos:
+  - repo: local
+    hooks:
+      - id: workspace-gatekeeper
+        name: Workspace Validation Gatekeeper
+        entry: ./localenv/run-checks.bat
+        language: script
+        pass_filenames: false
+        always_run: true

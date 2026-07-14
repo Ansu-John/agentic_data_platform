@@ -4,7 +4,7 @@ import sys
 from typing import Optional
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import current_timestamp, lit
-from pyspark.sql.utils import AnalysisException
+from pyspark.errors import AnalysisException
 
 # -------------------------------------------------------------------
 # Configuration & Logging
@@ -116,7 +116,7 @@ class IcebergIngestionPipeline:
                 logger.error(f"Failed to execute MERGE statement: {str(e)}", exc_info=True)
                 raise
 
-    def run(self):
+    def run(self)-> None:
         """Orchestrates the pipeline execution lifecycle."""
         try:
             df_raw = self.read_source_data()
@@ -134,7 +134,7 @@ class IcebergIngestionPipeline:
             self.spark.stop()
 
 
-def parse_arguments():
+def parse_arguments()-> argparse.Namespace:
     """Robust argument parsing for EMR job submission."""
     parser = argparse.ArgumentParser(description="Raw to Iceberg Ingestion Job")
     parser.add_argument("--source-path", required=True, help="S3 URI of the raw source file")

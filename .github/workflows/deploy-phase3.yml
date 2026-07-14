@@ -1,0 +1,128 @@
+name: Deploy Phase 3 AI Governance Platform
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "src/agent/**"
+      - "terraform/environments/dev/03-ai-dq-agent/**"
+      - ".github/workflows/deploy_phase3.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "src/agent/**"
+      - "terraform/environments/dev/03-ai-dq-agent/**"
+
+# Required to exchange GitHub OIDC tokens for AWS temporary credentials
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: "ap-south-1"
+  ECR_REPOSITORY: "dataplatform-ai-dq-agent"
+  TF_WORKING_DIR: "terraform/environments/dev/03-ai-dq-agent"
+
+jobs:
+  validate-and-test:
+    name: Code Quality & Testing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Astral UV
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "src/agent/uv.lock"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Dependencies
+        working-directory: src/agent
+        run: uv sync --frozen
+
+      - name: Type Checking (MyPy)
+        working-directory: src/agent
+        run: uv run mypy . --strict
+
+      - name: Linting (Ruff)
+        working-directory: src/agent
+        run: uv run ruff check .
+
+      - name: Run Integration & Unit Tests
+        working-directory: src/agent
+        run: uv run pytest tests/ -v
+
+  build-and-push-ecr:
+    name: Build Hardened Container
+    needs: validate-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.build-image.outputs.image_uri }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Setup Docker Buildx (For Caching)
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push Docker Image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker build \
+            --cache-from=type=gha \
+            --cache-to=type=gha,mode=max \
+            -t $IMAGE_URI src/agent/
+          docker push $IMAGE_URI
+          echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
+
+  deploy-infrastructure:
+    name: Terraform Apply (Phase 3)
+    needs: build-and-push-ecr
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0"
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Plan & Apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_agent_ecr_image_uri: ${{ needs.build-and-push-ecr.outputs.image_tag }}
+        run: |
+          terraform plan -out=tfplan
+          terraform apply -auto-approve tfplan
