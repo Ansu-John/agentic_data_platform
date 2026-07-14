@@ -47,7 +47,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Type Checking (MyPy)
-        working-directory: src/agent
+        working-directory: .
         run: uv run mypy . --strict
 
       - name: Linting (Ruff)
@@ -55,7 +55,7 @@ jobs:
         run: uv run ruff check .
 
       - name: Run Integration & Unit Tests
-        working-directory: src/agent
+        working-directory: .
         run: uv run pytest tests/ -v
 
   build-and-push-ecr:
