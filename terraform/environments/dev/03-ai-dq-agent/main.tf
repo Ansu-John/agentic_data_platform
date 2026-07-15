@@ -1,8 +1,7 @@
 locals {
   vpc_id             = data.terraform_remote_state.foundation.outputs.vpc_id
   private_subnet_ids = data.terraform_remote_state.foundation.outputs.private_subnet_ids
-  silver_bucket_arn  = data.terraform_remote_state.data_pipeline.outputs.silver_bucket_arn
-  step_function_arn  = data.terraform_remote_state.data_pipeline.outputs.ingestion_step_function_arn
+  step_function_arn  = data.terraform_remote_state.data_pipeline.outputs.step_function_arn
 }
 
 module "dynamodb_checkpoints" {
@@ -20,14 +19,14 @@ module "ai_dq_agent_compute" {
   private_subnet_ids  = local.private_subnet_ids
   ecr_image_uri       = var.agent_ecr_image_uri
   dynamodb_table_arn  = module.dynamodb_checkpoints.table_arn
-  silver_bucket_arn   = local.silver_bucket_arn
+  silver_bucket_arn   = "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}"
   
   # Injecting environment variables into the container
   environment_variables = {
     ENVIRONMENT            = var.environment
     AWS_REGION             = var.aws_region
-    SILVER_BUCKET_NAME     = data.terraform_remote_state.data_pipeline.outputs.silver_bucket_name
-    QUARANTINE_BUCKET_NAME = data.terraform_remote_state.data_pipeline.outputs.quarantine_bucket_name
+    SILVER_BUCKET_NAME     = data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]
+    QUARANTINE_BUCKET_NAME = data.terraform_remote_state.foundation.outputs.datalake_bucket_names["quarantine"]
   }
 }
 
