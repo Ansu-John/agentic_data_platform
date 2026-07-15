@@ -77,4 +77,4 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform apply -auto-approve
         env:
-          TF_VAR_zones: '["bronze", "silver", "gold"]'
+          TF_VAR_zones: '["bronze", "silver", "gold", "quarantine"]'
