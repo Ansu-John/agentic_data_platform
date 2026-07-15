@@ -5,7 +5,11 @@ output "kms_key_arn" {
 
 output "datalake_bucket_names" {
   description = "Map of data lake zones to their respective S3 bucket names"
-  value       = module.s3_datalake.bucket_names
+  value       = {
+    bronze     = module.s3_datalake.bronze_bucket_name
+    silver     = module.s3_datalake.silver_bucket_name
+    quarantine = module.s3_datalake.quarantine_bucket_name
+  }
 }
 
 output "vpc_id" {
