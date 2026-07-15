@@ -96,7 +96,8 @@ jobs:
           docker build \
             --cache-from=type=gha \
             --cache-to=type=gha,mode=max \
-            -t $IMAGE_URI src/agent/
+            -f src/agent/Dockerfile \
+            -t $IMAGE_URI .
           docker push $IMAGE_URI
           echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
 

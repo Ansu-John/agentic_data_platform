@@ -16,7 +16,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /home/hadoop/app
 
 # Copy lockfiles first to maximize Docker layer caching
-COPY pyproject.toml uv.lock ./
+COPY src/agent/pyproject.toml src/agent/uv.lock ./
 
 # Install dependencies strictly matching the lockfile (no updates allowed in CI)
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -61,11 +61,11 @@ RUN mkdir -p /tmp/agent_cache && \
 USER agentuser
 
 # Isolate execution environment variables
-ENV PATH="/app/.venv/bin:$PATH" \
+ENV PATH="/home/hadoop/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     TMPDIR="/tmp/agent_cache" \
-    PYTHONPATH="/app"
+    PYTHONPATH="/home/hadoop/app"
 
 # Tini intercepts AWS Fargate SIGTERM and gracefully shuts down the Python process
 ENTRYPOINT ["/usr/bin/tini", "--"]
