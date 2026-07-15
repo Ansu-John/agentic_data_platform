@@ -6,8 +6,8 @@ output "kms_key_arn" {
 output "datalake_bucket_names" {
   description = "Map of data lake zones to their respective S3 bucket names"
   value = zipmap(
-    var.zones,
-    aws_s3_bucket.datalake_zones[*].bucket
+    var.datalake_zones,
+    module.s3_datalake.bucket_names
   )
 }
 
