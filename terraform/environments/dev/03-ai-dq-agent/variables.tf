@@ -19,7 +19,7 @@ variable "project_name" {
 variable "terraform_state_bucket" {
   type        = string
   description = "S3 bucket housing remote state files for cross-layer references."
-  default     = "dataplatform-dev-terraform-state"
+  default     = "dataplatform-dev-tfstate-bucket"
 }
 
 variable "agent_ecr_image_uri" {
