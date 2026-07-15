@@ -6,9 +6,7 @@ on:
     paths:
       - "src/agent/**"
       - "terraform/environments/dev/03-ai-dq-agent/**"
-      - ".github/workflows/deploy_phase3.yml"
-  pull_request:
-    branches: ["main"]
+      - ".github/workflows/deploy-phase3.yml"
 
 permissions:
   id-token: write
@@ -18,7 +16,7 @@ env:
   AWS_REGION: "ap-south-1"
   ECR_REPOSITORY: "dataplatform-ai-dq-agent"
   TF_WORKING_DIR: "terraform/environments/dev/03-ai-dq-agent"
-  AWS_ROLE_ARN: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role" 
+  AWS_ROLE_ARN: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
 
 jobs:
   validate-and-test:
@@ -26,27 +24,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Setup Astral UV
-        uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
           cache-dependency-glob: "src/agent/uv.lock"
-
       - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
       - name: Install Dependencies
-        working-directory: src/agent
-        run: uv sync --frozen
+      - working-directory: src/agent
+        run: |
+          uv sync --frozen
 
       - name: Type Checking (MyPy)
         working-directory: .
         run: src/agent/.venv/bin/mypy src/agent --strict
-
+        
       - name: Linting (Ruff)
         working-directory: src/agent
         run: uv run ruff check .
@@ -56,18 +52,16 @@ jobs:
         env:
           PYTHONPATH: .
         run: src/agent/.venv/bin/pytest tests/ -v
-        
 
-  deploy-infrastructure:
-    name: Terraform Apply (Infra Shell)
+  deploy-infrastructure-and-app:
+    name: Enterprise Multi-Step Deployment
     needs: validate-and-test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials (OIDC)
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
@@ -82,31 +76,15 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init
 
-      - name: Terraform Apply
+      # PHASE 1: Build ONLY the ECR Repository first
+      - name: Terraform Target (ECR Repository)
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform apply -auto-approve
+        run: terraform apply -target=module.ai_dq_agent_compute.aws_ecr_repository.main -auto-approve
 
-  build-and-deploy-app:
-    name: Build & Deploy Agent to ECS
-    needs: deploy-infrastructure
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ env.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
+      # PHASE 2: Build and Push the Docker Image
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Setup Docker Buildx (For Caching)
-        uses: docker/setup-buildx-action@v3
 
       - name: Build and Push Docker Image
         id: build-image
@@ -123,15 +101,10 @@ jobs:
           docker push $IMAGE_URI
           echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
 
-      - name: Render new ECS Task Definition
-        id: render-task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: src/agent/task-definition.json
-          container-name: dq-agent-container
-          image: ${{ steps.build-image.outputs.image_uri }}
-
-      - name: Register new Task Definition revision
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+      # PHASE 3: Deploy the rest of the infrastructure using the real, private image
+      - name: Terraform Apply (Full Infrastructure)
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          # This environment variable fulfills the required Terraform variable automatically
+          TF_VAR_agent_ecr_image_uri: ${{ steps.build-image.outputs.image_uri }}
+        run: terraform apply -auto-approve
