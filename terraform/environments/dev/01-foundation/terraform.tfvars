@@ -3,4 +3,4 @@
 aws_region     = "ap-south-1"
 environment    = "dev"
 project        = "dataplatform"
-datalake_zones = ["bronze", "silver", "gold","quarantine"]
+datalake_zones = ["bronze", "silver", "gold", "quarantine"]
