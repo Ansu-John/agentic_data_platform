@@ -12,15 +12,15 @@ module "dynamodb_checkpoints" {
 }
 
 module "ai_dq_agent_compute" {
-  source              = "../../../modules/ecs_fargate"
-  project_name        = var.project_name
-  environment         = var.environment
-  vpc_id              = local.vpc_id
-  private_subnet_ids  = local.private_subnet_ids
-  ecr_image_uri       = var.agent_ecr_image_uri
-  dynamodb_table_arn  = module.dynamodb_checkpoints.table_arn
-  silver_bucket_arn   = "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}"
-  
+  source             = "../../../modules/ecs_fargate"
+  project_name       = var.project_name
+  environment        = var.environment
+  vpc_id             = local.vpc_id
+  private_subnet_ids = local.private_subnet_ids
+  ecr_image_uri      = var.agent_ecr_image_uri
+  dynamodb_table_arn = module.dynamodb_checkpoints.table_arn
+  silver_bucket_arn  = "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}"
+
   # Injecting environment variables into the container
   environment_variables = {
     ENVIRONMENT            = var.environment
