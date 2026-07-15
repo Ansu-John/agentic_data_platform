@@ -18,7 +18,7 @@ env:
   AWS_REGION: "ap-south-1"
   ECR_REPOSITORY: "dataplatform-ai-dq-agent"
   TF_WORKING_DIR: "terraform/environments/dev/03-ai-dq-agent"
-  AWS_ROLE_ARN: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionsDeploymentRole" 
+  AWS_ROLE_ARN: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role" 
 
 jobs:
   validate-and-test:
