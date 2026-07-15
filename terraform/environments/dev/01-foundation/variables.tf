@@ -18,3 +18,8 @@ variable "datalake_zones" {
   type        = list(string)
   default     = ["bronze", "silver", "gold"]
 }
+
+variable "zones" {
+  type        = list(string)
+  description = "List of zones to create (e.g., bronze, silver, gold)"
+}

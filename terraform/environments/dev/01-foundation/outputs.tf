@@ -5,11 +5,10 @@ output "kms_key_arn" {
 
 output "datalake_bucket_names" {
   description = "Map of data lake zones to their respective S3 bucket names"
-  value = {
-    bronze     = module.s3_datalake.bronze_bucket_name
-    silver     = module.s3_datalake.silver_bucket_name
-    quarantine = module.s3_datalake.quarantine_bucket_name
-  }
+  value       = zipmap(
+    var.zones, 
+    aws_s3_bucket.datalake_zones[*].bucket
+  )
 }
 
 output "vpc_id" {
