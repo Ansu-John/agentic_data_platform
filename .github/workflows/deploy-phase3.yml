@@ -75,6 +75,8 @@ jobs:
       # PHASE 1: Build ONLY the ECR Repository first
       - name: Terraform Target (ECR Repository)
         working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_agent_ecr_image_uri: "placeholder_for_target_apply" 
         run: terraform apply -target=module.ai_dq_agent_compute.aws_ecr_repository.main -auto-approve
 
       # PHASE 2: Build and Push the Docker Image
