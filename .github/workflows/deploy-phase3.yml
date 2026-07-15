@@ -9,12 +9,7 @@ on:
       - ".github/workflows/deploy_phase3.yml"
   pull_request:
     branches: ["main"]
-    paths:
-      - "src/agent/**"
-      - "terraform/environments/dev/03-ai-dq-agent/**"
-      - ".github/workflows/deploy_phase3.yml"
 
-# Required to exchange GitHub OIDC tokens for AWS temporary credentials
 permissions:
   id-token: write
   contents: read
@@ -23,6 +18,7 @@ env:
   AWS_REGION: "ap-south-1"
   ECR_REPOSITORY: "dataplatform-ai-dq-agent"
   TF_WORKING_DIR: "terraform/environments/dev/03-ai-dq-agent"
+  AWS_ROLE_ARN: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionsDeploymentRole" 
 
 jobs:
   validate-and-test:
@@ -62,13 +58,11 @@ jobs:
         run: src/agent/.venv/bin/pytest tests/ -v
         
 
-  build-and-push-ecr:
-    name: Build Hardened Container
+  deploy-infrastructure:
+    name: Terraform Apply (Infra Shell)
     needs: validate-and-test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    outputs:
-      image_tag: ${{ steps.build-image.outputs.image_uri }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -76,7 +70,35 @@ jobs:
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0"
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -auto-approve
+
+  build-and-deploy-app:
+    name: Build & Deploy Agent to ECS
+    needs: deploy-infrastructure
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -101,33 +123,15 @@ jobs:
           docker push $IMAGE_URI
           echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
 
-  deploy-infrastructure:
-    name: Terraform Apply (Phase 3)
-    needs: build-and-push-ecr
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Render new ECS Task Definition
+        id: render-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
-          aws-region: ${{ env.AWS_REGION }}
+          task-definition: src/agent/task-definition.json
+          container-name: dq-agent-container
+          image: ${{ steps.build-image.outputs.image_uri }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - name: Register new Task Definition revision
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
-          terraform_version: "1.7.0"
-
-      - name: Terraform Init
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform init
-
-      - name: Terraform Plan & Apply
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        env:
-          TF_VAR_agent_ecr_image_uri: ${{ needs.build-and-push-ecr.outputs.image_tag }}
-        run: |
-          terraform plan -out=tfplan
-          terraform apply -auto-approve tfplan
+          task-definition: ${{ steps.render-task-def.outputs.task-definition }}

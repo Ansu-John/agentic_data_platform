@@ -4,7 +4,7 @@ output "cluster_arn" {
 }
 
 output "task_definition_arn" {
-  value       = aws_ecs_task_definition.agent_task.arn
+  value       = replace(aws_ecs_task_definition.agent_task.arn, "/:\\d+$/", "") # strip the revision in Terraform so EventBridge Target inside Terraform points to the Task Definition Family ARN (without the :revision_number at the end).
   description = "The compute definition runtime specification layout identifier."
 }
 
