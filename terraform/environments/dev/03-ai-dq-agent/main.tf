@@ -6,14 +6,14 @@ locals {
 }
 
 module "dynamodb_checkpoints" {
-  source       = "../../modules/dynamodb_state"
+  source       = "../../../modules/dynamodb_state"
   table_name   = "langgraph-checkpoints-${var.environment}"
   billing_mode = "PAY_PER_REQUEST"
   tags         = var.tags
 }
 
 module "ai_dq_agent_compute" {
-  source              = "../../modules/ecs_fargate"
+  source              = "../../../modules/ecs_fargate"
   project_name        = var.project_name
   environment         = var.environment
   vpc_id              = local.vpc_id
@@ -32,7 +32,7 @@ module "ai_dq_agent_compute" {
 }
 
 module "eventbridge_trigger" {
-  source                  = "../../modules/eventbridge_ecs_trigger"
+  source                  = "../../../modules/eventbridge_ecs_trigger"
   project_name            = var.project_name
   environment             = var.environment
   step_function_arn       = local.step_function_arn
