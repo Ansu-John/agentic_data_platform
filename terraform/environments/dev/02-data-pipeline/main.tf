@@ -20,6 +20,17 @@ resource "aws_ecr_repository" "spark_repo" {
   force_delete         = true
 }
 
+# AI DQ Agent Repo for Phase 3
+resource "aws_ecr_repository" "dq_agent_repo" {
+  name                 = "dataplatform-ai-dq-agent" # Hardcoded to match Phase 3 workflow env var
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
 resource "aws_ecr_repository_policy" "emr_ecr_policy" {
   repository = aws_ecr_repository.spark_repo.name
 

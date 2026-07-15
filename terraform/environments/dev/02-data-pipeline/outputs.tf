@@ -20,6 +20,10 @@ output "emr_execution_role_arn" {
   value       = aws_iam_role.emr_execution_role.arn
 }
 
+output "dq_agent_ecr_repository_url" {
+  value = aws_ecr_repository.dq_agent_repo.repository_url
+}
+
 # ===================================================================
 # 2. ORCHESTRATION OUTPUTS
 # ===================================================================

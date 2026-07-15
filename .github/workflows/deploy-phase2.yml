@@ -96,7 +96,7 @@ jobs:
         env:
           TF_LOG: DEBUG
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform apply -target="aws_ecr_repository.spark_repo" -auto-approve -input=false
+        run: terraform apply -target="aws_ecr_repository.spark_repo" -target="aws_ecr_repository.dq_agent_repo" -auto-approve -input=false
           
       - name: Build, tag, and push Docker image to ECR
         env:
