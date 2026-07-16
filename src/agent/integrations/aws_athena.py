@@ -22,7 +22,8 @@ class AthenaRepository:
         # Format the S3 URI once during initialization
         if not output_bucket:
             raise ValueError("output_bucket cannot be null or empty")
-        self.output_location = f"s3://{output_bucket}/athena_query_results/"
+        #self.output_location = f"s3://{output_bucket}/athena_query_results/"
+        self.output_location = f"s3://{output_bucket}/"
 
 
     @retry(

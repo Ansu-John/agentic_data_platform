@@ -11,6 +11,48 @@ resource "aws_iam_role" "execution_role" {
   })
 }
 
+resource "aws_iam_role_policy" "ecs_task_athena_s3_kms_policy" {
+  name = "TaskRoleAthenaFullAccess"
+  role = aws_iam_role.task_role.id
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        # 1. Bucket Verification (Required by Athena)
+        Sid    = "AthenaBucketVerification"
+        Effect = "Allow"
+        Action = [
+          "s3:GetBucketLocation",
+          "s3:ListBucket"
+        ]
+        Resource = [var.silver_bucket_arn]
+      },
+      {
+        # 2. Object Access (Required for Athena Query Results)
+        Sid    = "AthenaResultAccess"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:AbortMultipartUpload"
+        ]
+        Resource = ["${var.silver_bucket_arn}/*"]
+      },
+      {
+        # 3. KMS Decryption (Required if bucket is encrypted with a Customer Key)
+        Sid    = "KMSAccess"
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+          "kms:Encrypt"
+        ]
+        Resource = [module.kms.key_arn] 
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
   role       = aws_iam_role.execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
@@ -73,7 +115,16 @@ resource "aws_iam_policy" "agent_permissions" {
           "glue:UpdateTable"
         ]
         Resource = "*" # Scope down to specific catalog ARNs
-      }
+      },
+      {
+        Sid      = "KMSDecryptEncrypt"
+        Effect   = "Allow"
+        Action   = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ]
+        Resource = [module.kms.key_arn] 
+      },
     ]
   })
 }
