@@ -87,7 +87,7 @@ if __name__ == "__main__":
             "detail": {
                 "executionArn": "arn:aws:states:ap-south-1:${{ secrets.AWS_ACCOUNT_ID }}:"
                 "execution:DataPipelineSFN:run-8821B",
-                "output": {"table_name": "silver_customer_transactions"}
+                "output": {"table_name": "silver_events"}
             }
         }
 
