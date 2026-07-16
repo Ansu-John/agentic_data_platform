@@ -30,7 +30,6 @@ module "ai_dq_agent_compute" {
     ATHENA_WORKGROUP       = "primary"
   }
 }
-
 module "eventbridge_trigger" {
   source                  = "../../../modules/eventbridge_ecs_trigger"
   project_name            = var.project_name
