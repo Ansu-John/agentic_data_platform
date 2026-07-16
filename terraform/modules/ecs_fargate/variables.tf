@@ -10,3 +10,8 @@ variable "environment_variables" {
   description = "Key-value configuration maps injected into container launch parameters."
   default     = {}
 }
+variable "kms_key_arn" {
+  type        = string
+  description = "ARN of the KMS key for S3/Athena encryption."
+  default     = null # Set to null to make it optional if not always required
+}

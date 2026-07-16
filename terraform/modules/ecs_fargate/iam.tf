@@ -47,7 +47,7 @@ resource "aws_iam_role_policy" "ecs_task_athena_s3_kms_policy" {
           "kms:GenerateDataKey",
           "kms:Encrypt"
         ]
-        Resource = [module.kms.key_arn] 
+        Resource = var.kms_key_arn != null ? [var.kms_key_arn] : []
       }
     ]
   })
@@ -123,7 +123,7 @@ resource "aws_iam_policy" "agent_permissions" {
           "kms:Decrypt",
           "kms:GenerateDataKey"
         ]
-        Resource = [module.kms.key_arn] 
+        Resource = var.kms_key_arn != null ? [var.kms_key_arn] : []
       },
     ]
   })
