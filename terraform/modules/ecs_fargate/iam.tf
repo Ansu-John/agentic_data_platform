@@ -141,8 +141,8 @@ resource "aws_iam_policy" "agent_permissions" {
         ]
         Resource = [
           "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:catalog",
-          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:database/${var.project_name}_silver_catalog",
-          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${var.project_name}_silver_catalog/*"
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:database/${var.project_name}_dev_ai_catalog",
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${var.project_name}_dev_ai_catalog/*"
         ]
       },
     ]
