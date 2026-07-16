@@ -1,3 +1,4 @@
+import os
 import time
 from typing import Any
 
@@ -31,7 +32,7 @@ class AthenaRepository:
                 QueryString=query,
                 QueryExecutionContext={"Database": self.database},
                 ResultConfiguration={"OutputLocation": output_location},
-                WorkGroup=self.workgroup
+                WorkGroup=os.getenv('ATHENA_WORKGROUP', 'primary')
             )
             execution_id: str = response["QueryExecutionId"]
             logger.info("athena_query_submitted", query_execution_id=execution_id)

@@ -27,6 +27,7 @@ module "ai_dq_agent_compute" {
     AWS_REGION             = var.aws_region
     SILVER_BUCKET_NAME     = data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]
     QUARANTINE_BUCKET_NAME = data.terraform_remote_state.foundation.outputs.datalake_bucket_names["quarantine"]
+    ATHENA_WORKGROUP       = "primary"
   }
 }
 
