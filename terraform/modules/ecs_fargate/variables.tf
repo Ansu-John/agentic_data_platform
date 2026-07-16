@@ -15,3 +15,9 @@ variable "kms_key_arn" {
   description = "ARN of the KMS key for S3/Athena encryption."
   default     = null # Set to null to make it optional if not always required
 }
+variable "aws_region" {
+  type        = string
+  description = "The target AWS Region for deployment."
+  default     = "ap-south-1"
+}
+

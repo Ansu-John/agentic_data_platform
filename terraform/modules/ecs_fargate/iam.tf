@@ -4,8 +4,8 @@ resource "aws_iam_role" "execution_role" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
       Principal = { Service = "ecs-tasks.amazonaws.com" }
     }]
   })
@@ -60,14 +60,14 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
 
 # Task Role (Permissions for the Python LangGraph Application)
 resource "aws_iam_role" "task_role" {
-  name = "${var.project_name}-${var.environment}-agent-task-role"
+  name               = "${var.project_name}-${var.environment}-agent-task-role"
   assume_role_policy = aws_iam_role.execution_role.assume_role_policy
 }
 
 resource "aws_iam_policy" "agent_permissions" {
   name        = "${var.project_name}-${var.environment}-agent-policy"
   description = "Permissions for AI DQ Agent to access Bedrock, Athena, Glue, and S3"
-  policy      = jsonencode({
+  policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
@@ -83,19 +83,19 @@ resource "aws_iam_policy" "agent_permissions" {
         Resource = var.dynamodb_table_arn
       },
       {
-        Sid      = "DataLakeBucketAccess"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "DataLakeBucketAccess"
+        Effect = "Allow"
+        Action = [
           "s3:GetBucketLocation",
           "s3:ListBucket"
         ]
         # This points to the bucket ARN (no wildcard)
-        Resource = [var.silver_bucket_arn] 
+        Resource = [var.silver_bucket_arn]
       },
       {
-        Sid      = "DataLakeObjectAccess"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "DataLakeObjectAccess"
+        Effect = "Allow"
+        Action = [
           "s3:GetObject",
           "s3:PutObject",
           "s3:DeleteObject",
@@ -105,9 +105,9 @@ resource "aws_iam_policy" "agent_permissions" {
         Resource = ["${var.silver_bucket_arn}/*"]
       },
       {
-        Sid      = "AthenaGlueGovernance"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "AthenaGlueGovernance"
+        Effect = "Allow"
+        Action = [
           "athena:StartQueryExecution",
           "athena:GetQueryExecution",
           "athena:GetQueryResults",
@@ -117,13 +117,31 @@ resource "aws_iam_policy" "agent_permissions" {
         Resource = "*" # Scope down to specific catalog ARNs
       },
       {
-        Sid      = "KMSDecryptEncrypt"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "KMSDecryptEncrypt"
+        Effect = "Allow"
+        Action = [
           "kms:Decrypt",
           "kms:GenerateDataKey"
         ]
         Resource = var.kms_key_arn != null ? [var.kms_key_arn] : []
+      },
+      {
+        Sid    = "GlueCatalogAccess"
+        Effect = "Allow"
+        Action = [
+          "glue:GetDatabase",
+          "glue:GetDatabases",
+          "glue:GetTable",
+          "glue:GetTables",
+          "glue:GetPartition",
+          "glue:GetPartitions",
+          "glue:BatchGetPartition"
+        ]
+        Resource = [
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:catalog",
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:database/${var.project_name}_silver_catalog",
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${var.project_name}_silver_catalog/*"
+        ]
       },
     ]
   })

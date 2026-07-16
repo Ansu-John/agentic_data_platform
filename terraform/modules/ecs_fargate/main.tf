@@ -2,7 +2,7 @@ data "aws_region" "current" {}
 
 resource "aws_ecs_cluster" "main" {
   name = "${var.project_name}-${var.environment}-ai-cluster"
-  
+
   setting {
     name  = "containerInsights"
     value = "enabled"
@@ -27,7 +27,7 @@ resource "aws_ecs_task_definition" "agent_task" {
     name      = "dq-agent"
     image     = var.ecr_image_uri
     essential = true
-    
+
     environment = [
       for k, v in var.environment_variables : { name = k, value = v }
     ]
