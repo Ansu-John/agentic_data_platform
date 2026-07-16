@@ -32,9 +32,9 @@ def profile_data_node(state: AgentState) -> dict[str, Any]:
     analytical_query = f"""
         SELECT
             COUNT(1) as total_record_count,
-            COUNT(CASE WHEN id IS NULL THEN 1 END) as null_primary_keys,
-            COUNT(CASE WHEN updated_at IS NULL THEN 1 END) as null_timestamps,
-            APPROX_DISTINCT(id) as distinct_id_estimate
+            COUNT(CASE WHEN event_id IS NULL THEN 1 END) as null_primary_keys,
+            COUNT(CASE WHEN _ingest_timestamp IS NULL THEN 1 END) as null_timestamps,
+            APPROX_DISTINCT(event_id) as distinct_id_estimate
         FROM "{db}"."{table}"
     """
 
