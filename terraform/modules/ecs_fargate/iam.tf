@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 # Task Execution Role (Allows ECS to pull images and write CloudWatch logs)
 resource "aws_iam_role" "execution_role" {
   name = "${var.project_name}-${var.environment}-ecs-exec-role"
