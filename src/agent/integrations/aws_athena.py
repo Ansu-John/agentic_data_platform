@@ -1,4 +1,3 @@
-import os
 import time
 from typing import Any
 
@@ -14,10 +13,17 @@ logger = get_logger(__name__)
 class AthenaRepository:
     """Manages high-throughput analytical query compilation against Iceberg tables."""
 
-    def __init__(self, region_name: str, database: str, workgroup: str = "primary"):
+    def __init__(self, region_name: str, database: str, output_bucket: str,
+                 workgroup: str = "primary"):
         self.client = boto3.client("athena", region_name=region_name)
         self.database = database
         self.workgroup = workgroup
+
+        # Format the S3 URI once during initialization
+        if not output_bucket:
+            raise ValueError("output_bucket cannot be null or empty")
+        self.output_location = f"s3://{output_bucket}/athena_query_results/"
+
 
     @retry(
         wait=wait_exponential(multiplier=1, min=2, max=10),
@@ -25,14 +31,18 @@ class AthenaRepository:
         retry=retry_if_exception_type(ClientError),
         reraise=True
     )
-    def execute_query_async(self, query: str, output_location: str) -> str:
+    def execute_query_async(self, query: str) -> str:
         """Launches an asynchronous query execution thread with automatic retries on throttling."""
         try:
+
+            logger.info(f"Attempting Athena query against WorkGroup: [{self.workgroup}] "
+                        f"with output to [{self.output_location}]")
+
             response = self.client.start_query_execution(
                 QueryString=query,
                 QueryExecutionContext={"Database": self.database},
-                ResultConfiguration={"OutputLocation": output_location},
-                WorkGroup=os.getenv('ATHENA_WORKGROUP', 'primary')
+                ResultConfiguration={"OutputLocation": self.output_location},
+                WorkGroup=self.workgroup
             )
             execution_id: str = response["QueryExecutionId"]
             logger.info("athena_query_submitted", query_execution_id=execution_id)

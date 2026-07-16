@@ -24,6 +24,7 @@ def profile_data_node(state: AgentState) -> dict[str, Any]:
     athena_client = AthenaRepository(
         region_name=settings.AWS_REGION,
         database=db,
+        output_bucket=settings.SILVER_BUCKET_NAME,
         workgroup=settings.ATHENA_WORKGROUP
     )
 
@@ -38,8 +39,7 @@ def profile_data_node(state: AgentState) -> dict[str, Any]:
     """
 
     try:
-        execution_id = athena_client.execute_query_async(analytical_query,
-                                                         state["athena_output_s3_prefix"])
+        execution_id = athena_client.execute_query_async(analytical_query)
         raw_results = athena_client.poll_query_results(execution_id,
                                                        max_wait_seconds=settings.ATHENA_TIMEOUT_SECONDS)
 

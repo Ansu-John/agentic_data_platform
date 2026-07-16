@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     SILVER_BUCKET_NAME: str = Field(default="dataplatform-dev-s3-ap-south-1-silver")
     QUARANTINE_BUCKET_NAME: str = Field(default="dataplatform-dev-s3-ap-south-1-quarantine")
     CATALOG_DATABASE: str = Field(default="dataplatform_silver_catalog")
-    ATHENA_WORKGROUP: str = Field(default="analytics_governance_wg")
+    ATHENA_WORKGROUP: str = Field(default="primary")
 
     # AI/LLM Orchestration Parameters
     BEDROCK_MODEL_ID: str = Field(default="anthropic.claude-3-sonnet-20240229-v1:0")
@@ -52,6 +52,5 @@ class Settings(BaseSettings):
         case_sensitive=True,
         extra="ignore"
     )
-
 # Instantiate a process-wide singleton for global access
 settings = Settings()
