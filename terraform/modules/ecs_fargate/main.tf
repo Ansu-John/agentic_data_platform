@@ -41,11 +41,11 @@ resource "aws_ecs_task_definition" "agent_task" {
       }
     }
   }])
-  lifecycle {
-    ignore_changes = [
-      container_definitions
-    ]
-  }
+  #lifecycle {
+  #  ignore_changes = [
+  #    container_definitions
+  #  ]
+  #}
 }
 
 resource "aws_security_group" "ecs_sg" {
