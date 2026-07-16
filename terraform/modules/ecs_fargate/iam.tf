@@ -41,9 +41,25 @@ resource "aws_iam_policy" "agent_permissions" {
         Resource = var.dynamodb_table_arn
       },
       {
-        Sid      = "DataLakeAccess"
+        Sid      = "DataLakeBucketAccess"
         Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+        Action   = [
+          "s3:GetBucketLocation",
+          "s3:ListBucket"
+        ]
+        # This points to the bucket ARN (no wildcard)
+        Resource = [var.silver_bucket_arn] 
+      },
+      {
+        Sid      = "DataLakeObjectAccess"
+        Effect   = "Allow"
+        Action   = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:AbortMultipartUpload"
+        ]
+        # This points to the objects inside the bucket
         Resource = ["${var.silver_bucket_arn}/*"]
       },
       {
