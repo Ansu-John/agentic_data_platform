@@ -80,7 +80,7 @@ resource "aws_iam_role_policy" "eventbridge_ecs_invoke_policy" {
       {
         Effect   = "Allow",
         Action   = "ecs:RunTask",
-        Resource = replace(module.ai_dq_agent_compute.task_definition_arn, "/:\\d+$/", ":*")
+        Resource = "arn:aws:ecs:${var.aws_region}:*:task-definition/${var.project_name}-${var.environment}-dq-agent:*"
       },
       {
         Effect   = "Allow",
