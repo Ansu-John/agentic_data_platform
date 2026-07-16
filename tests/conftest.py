@@ -29,7 +29,7 @@ def glue_client(aws_credentials) -> Generator[Any, None, None]:
 @pytest.fixture(scope="function")
 def mock_glue_catalog(glue_client) -> str:
     """Sets up a simulated Glue database and table structure for integration tests."""
-    db_name = "dataplatform_silver_catalog"
+    db_name = "dataplatform_dev_ai_catalog"
     table_name = "silver_events"
     
     glue_client.create_database(DatabaseInput={"Name": db_name})

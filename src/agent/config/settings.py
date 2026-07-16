@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     # Core Data Lake Infra Parameters
     SILVER_BUCKET_NAME: str = Field(default="dataplatform-dev-s3-ap-south-1-silver")
     QUARANTINE_BUCKET_NAME: str = Field(default="dataplatform-dev-s3-ap-south-1-quarantine")
-    CATALOG_DATABASE: str = Field(default="dataplatform_silver_catalog")
+    CATALOG_DATABASE: str = Field(default="dataplatform_dev_ai_catalog")
     ATHENA_WORKGROUP: str = Field(default="primary")
 
     # AI/LLM Orchestration Parameters
