@@ -38,7 +38,7 @@ jobs:
 
       - name: Type Checking (MyPy)
         working-directory: .
-        run: src/agent/.venv/bin/mypy src/agent --strict
+        run: src/.venv/bin/mypy src/agent --strict
         
       - name: Linting (Ruff)
         working-directory: src/agent
@@ -48,7 +48,7 @@ jobs:
         working-directory: .
         env:
           PYTHONPATH: .
-        run: src/agent/.venv/bin/pytest tests/ -v
+        run: src/.venv/bin/pytest tests/ -v
 
   deploy-infrastructure-and-app:
     name: Enterprise Multi-Step Deployment
