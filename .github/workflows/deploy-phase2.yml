@@ -12,6 +12,7 @@ on:
       - 'terraform/environments/dev/02-data-pipeline/**'
       - ".github/workflows/deploy-phase2.yml"
 
+      
 permissions:
   id-token: write
   contents: read
