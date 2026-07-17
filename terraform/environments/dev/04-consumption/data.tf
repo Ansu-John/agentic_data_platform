@@ -13,9 +13,9 @@ data "terraform_remote_state" "foundation" {
 data "terraform_remote_state" "data_pipeline" {
   backend = "s3"
   config = {
-    bucket = var.terraform_state_bucket
+    bucket = "dataplatform-dev-tfstate-bucket"
     key    = "dev/02-data-pipeline/terraform.tfstate"
-    region = var.aws_region
+    region = "ap-south-1"
   }
 }
 
