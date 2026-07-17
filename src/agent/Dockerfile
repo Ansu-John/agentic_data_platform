@@ -16,7 +16,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /home/hadoop/app
 
 # Copy lockfiles first to maximize Docker layer caching
-COPY src/agent/pyproject.toml src/agent/uv.lock ./
+COPY src/pyproject.toml src/uv.lock ./
 
 # Install dependencies strictly matching the lockfile (no updates allowed in CI)
 RUN --mount=type=cache,target=/root/.cache/uv \

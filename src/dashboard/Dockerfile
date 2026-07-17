@@ -13,7 +13,7 @@ ENV PYTHONUNBUFFERED=1 \
     UV_PROJECT_ENVIRONMENT=/home/hadoop/app/.venv
 
 # Step 1: Copy ONLY the dependency files first to leverage Docker layer caching
-COPY src/dashboard/pyproject.toml src/dashboard/uv.lock ./
+COPY src/pyproject.toml src/uv.lock ./
 
 # Step 2: Install dependencies (without installing the project source code yet)
 RUN uv sync --frozen --no-dev --no-install-project
