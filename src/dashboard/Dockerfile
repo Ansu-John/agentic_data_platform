@@ -1,28 +1,33 @@
-# Use a lightweight Python base image
-FROM python:3.12-slim-bookworm
+FROM ghcr.io/astral-sh/uv:0.4.0 AS uv-base
+FROM python:3.12-slim AS builder
 
-# Install the uv binary directly from the official image
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Inherit uv binary from the official image
+COPY --from=uv-base /uv /uvx /bin/
+
+# Enforce deterministic build flags and Ensure uv output is not buffered and virtual environment is in the project
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PYTHONUNBUFFERED=1 \
+    UV_PROJECT_ENVIRONMENT=/home/hadoop/app/.venv \
+    PATH="/home/hadoop/app/.venv/bin:$PATH"
 
 # Set the working directory
 WORKDIR /home/hadoop/app
 
-# Ensure uv output is not buffered and virtual environment is in the project
-ENV PYTHONUNBUFFERED=1 \
-    UV_COMPILE_BYTECODE=1 \
-    UV_PROJECT_ENVIRONMENT=/home/hadoop/app/.venv
-
 # Step 1: Copy ONLY the dependency files first to leverage Docker layer caching
 COPY src/pyproject.toml src/uv.lock ./
 
-# Step 2: Install dependencies (without installing the project source code yet)
-RUN uv sync --frozen --no-dev --no-install-project
+# Step 2: Install dependencies strictly matching the lockfile (no updates allowed in CI)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project --no-dev
 
 # Step 3: Copy the actual application code
 COPY  src/ ./src/
 
 # Step 4: Final sync to link the application code
-RUN uv sync --frozen --no-dev
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
 # Expose the port Streamlit runs on
 EXPOSE 8501
