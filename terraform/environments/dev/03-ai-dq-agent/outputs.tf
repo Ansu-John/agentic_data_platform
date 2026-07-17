@@ -15,10 +15,10 @@ output "eventbridge_rule_arn" {
 
 output "cluster_arn" {
   description = "The ARN of the ECS Cluster running the AI Data Quality Agent"
-  value       = module.ecs_fargate.cluster_arn
+  value       = module.ai_dq_agent_compute.cluster_arn
 }
 
 output "security_group_id" {
   description = "The Security Group ID attached to the ECS Tasks"
-  value       = module.ecs_fargate.security_group_id
+  value       = module.ai_dq_agent_compute.security_group_id
 }
