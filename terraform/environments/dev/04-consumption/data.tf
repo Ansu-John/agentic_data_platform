@@ -7,7 +7,6 @@ data "terraform_remote_state" "foundation" {
     bucket = "dataplatform-dev-tfstate-bucket"
     key    = "dev/01-foundation/terraform.tfstate"
     region = "ap-south-1"
-    path   = "../01-foundation/terraform.tfstate" # Use this if backend is "local"
   }
 }
 
@@ -18,6 +17,5 @@ data "terraform_remote_state" "agent" {
     bucket = "dataplatform-dev-tfstate-bucket"
     key    = "dev/03-ai-dq-agent/terraform.tfstate"
     region = "ap-south-1"
-    path   = "../03-ai-dq-agent/terraform.tfstate" # Use this if backend is "local"
   }
 }
