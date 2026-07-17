@@ -40,7 +40,7 @@ resource "aws_lb" "dashboard_alb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
-  subnets            = data.terraform_remote_state.foundation.outputs.public_subnet_ids
+  subnets            = data.terraform_remote_state.foundation.outputs.private_subnet_ids
 }
 
 resource "aws_lb_target_group" "dashboard_tg" {
@@ -115,14 +115,14 @@ resource "aws_ecs_task_definition" "dashboard_task" {
 
 resource "aws_ecs_service" "dashboard_service" {
   name            = "${var.project_name}-${var.environment}-dashboard-svc"
-  cluster         = data.terraform_remote_state.agent.outputs.cluster_arn
+  cluster         = data.terraform_remote_state.data_pipeline.outputs.cluster_arn
   task_definition = aws_ecs_task_definition.dashboard_task.arn
   desired_count   = 1
   launch_type     = "FARGATE"
 
   network_configuration {
     subnets          = data.terraform_remote_state.foundation.outputs.private_subnet_ids
-    security_groups  = [data.terraform_remote_state.agent.outputs.security_group_id]
+    security_groups  = [data.terraform_remote_state.data_pipeline.outputs.security_group_id]
     assign_public_ip = false
   }
 

@@ -10,6 +10,15 @@ data "terraform_remote_state" "foundation" {
   }
 }
 
+data "terraform_remote_state" "data_pipeline" {
+  backend = "s3"
+  config = {
+    bucket = var.terraform_state_bucket
+    key    = "dev/02-data-pipeline/terraform.tfstate"
+    region = var.aws_region
+  }
+}
+
 # Fetch ECS Cluster and Security Groups from Phase 3
 data "terraform_remote_state" "agent" {
   backend = "s3" # Change to "local" if you aren't using S3 state yet
