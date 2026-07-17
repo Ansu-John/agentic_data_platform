@@ -1,10 +1,12 @@
 import json
-import os
-import boto3
-import uuid
 import logging
-from typing import Dict, Any, Tuple
+import os
+import uuid
+from typing import Any
+
+import boto3
 from botocore.exceptions import ClientError
+
 
 # ==============================================================================
 # 1. ENTERPRISE OBSERVABILITY SETUP
@@ -29,7 +31,7 @@ logger.setLevel(logging.INFO)
 if logger.handlers:
     for handler in logger.handlers:
         logger.removeHandler(handler)
-        
+
 json_handler = logging.StreamHandler()
 json_handler.setFormatter(JSONFormatter())
 logger.addHandler(json_handler)
@@ -44,8 +46,9 @@ try:
     ENVIRONMENT = os.environ.get('ENVIRONMENT', 'dev')
     PROJECT = os.environ.get('PROJECT', 'dataplatform')
 except KeyError as e:
-    logger.critical("Fatal: Missing required environment variable", extra={"custom_fields": {"missing_var": str(e)}})
-    raise RuntimeError(f"Initialization failed due to missing environment variable: {e}")
+    logger.critical("Fatal: Missing required environment variable",
+                    extra={"custom_fields": {"missing_var": str(e)}})
+    raise RuntimeError(f"Initialization failed due to missing environment variable: {e}") from e
 
 # Initialize boto3 clients globally to reuse connection pools across warm invocations
 sfn_client = boto3.client('stepfunctions')
@@ -54,7 +57,7 @@ sfn_client = boto3.client('stepfunctions')
 # ==============================================================================
 # 3. DOMAIN LOGIC
 # ==============================================================================
-def parse_s3_event(event: Dict[str, Any]) -> Tuple[str, str, str]:
+def parse_s3_event(event: dict[str, Any]) -> tuple[str, str, str]:
     """
     Extracts and validates S3 bucket, key, and logical entity name from the event.
     """
@@ -62,47 +65,48 @@ def parse_s3_event(event: Dict[str, Any]) -> Tuple[str, str, str]:
         record = event['Records'][0]
         bucket = record['s3']['bucket']['name']
         key = record['s3']['object']['key']
-        
+
         # Expected pattern: raw/{entity}/{filename}.json
         parts = key.split('/')
         if len(parts) < 2:
-            raise ValueError(f"S3 Key '{key}' does not match expected folder structure 'raw/entity/file'")
-            
+            raise ValueError(f"S3 Key '{key}' does not match expected folder structure "
+                             f"'raw/entity/file'")
+
         entity = parts[1]
         return bucket, key, entity
     except KeyError as e:
-        raise ValueError(f"Malformed S3 event payload. Missing key: {e}")
+        raise ValueError(f"Malformed S3 event payload. Missing key: {e}") from e
 
 
 # ==============================================================================
 # 4. MAIN HANDLER
 # ==============================================================================
-def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """
     AWS Lambda entry point. Orchestrates the transition from S3 event to Step Function.
     """
     request_id = context.aws_request_id
-    
+
     logger.info("Lambda invoked", extra={"custom_fields": {
         "aws_request_id": request_id,
         "event_source": "s3_trigger"
     }})
-    
+
     try:
         # 1. Parse Event
         bucket, key, entity = parse_s3_event(event)
-        
+
         logger.info("S3 event parsed successfully", extra={"custom_fields": {
             "bucket": bucket,
             "key": key,
             "entity": entity,
             "aws_request_id": request_id
         }})
-        
+
         # 2. Construct Step Function Payload
         job_name = f"ingest-{entity}-{uuid.uuid4().hex[:8]}"
         table_name = f"silver_{entity}"
-        
+
         sfn_input = {
             "job_name": job_name,
             "source_path": f"s3://{bucket}/{key}",
@@ -112,25 +116,25 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "merge_key": "event_id",
             "trigger_request_id": request_id  # Tracing lineage
         }
-        
+
         # 3. Execute Orchestrator
         logger.info("Triggering Step Function", extra={"custom_fields": {
             "step_function_arn": SFN_ARN,
             "payload": sfn_input
         }})
-        
+
         response = sfn_client.start_execution(
             stateMachineArn=SFN_ARN,
             name=job_name,
             input=json.dumps(sfn_input)
         )
-        
+
         execution_arn = response['executionArn']
         logger.info("Step Function execution started successfully", extra={"custom_fields": {
             "execution_arn": execution_arn,
             "aws_request_id": request_id
         }})
-        
+
         return {
             'statusCode': 200,
             'body': json.dumps({
@@ -138,7 +142,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'execution_arn': execution_arn
             })
         }
-        
+
     except ValueError as ve:
         # Client-side / Payload errors
         logger.error("Validation error processing event", extra={"custom_fields": {
@@ -146,7 +150,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "error_type": "ValueError"
         }}, exc_info=True)
         return {'statusCode': 400, 'body': json.dumps(f"Bad Request: {str(ve)}")}
-        
+
     except ClientError as ce:
         # AWS API / Permission errors
         error_code = ce.response['Error']['Code']
@@ -155,7 +159,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "aws_error_code": error_code
         }}, exc_info=True)
         return {'statusCode': 502, 'body': json.dumps(f"Upstream AWS Error: {error_code}")}
-        
+
     except Exception as e:
         # Unhandled execution errors
         logger.error("Unhandled exception during execution", extra={"custom_fields": {
