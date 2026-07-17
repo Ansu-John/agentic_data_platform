@@ -2,7 +2,7 @@
 name = "ai-data-platform"
 version = "0.1.0"
 description = "Enterprise AI-Driven Data Platform"
-requires-python = "==3.12.10"
+requires-python = ">=3.12"
 dependencies = [
     "langchain-core>=0.1.0",
     "langchain-aws>=0.1.0",
