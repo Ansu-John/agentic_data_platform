@@ -71,7 +71,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ env.PROJECT_NAME }}-${{ env.ENV }}-dashboard
           IMAGE_TAG: ${{ github.sha }}
-        working-directory: ${{ env.DK_WORKING_DIR }}
+        working-directory: ${{ env.APP_WORKING_DIR }}
         run: |
           # Build the Docker image
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .

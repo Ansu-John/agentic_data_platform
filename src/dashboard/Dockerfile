@@ -15,14 +15,14 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /home/hadoop/app
 
 # Step 1: Copy ONLY the dependency files first to leverage Docker layer caching
-COPY src/pyproject.toml src/uv.lock ./
+COPY pyproject.toml uv.lock ./
 
 # Step 2: Install dependencies strictly matching the lockfile (no updates allowed in CI)
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
 # Step 3: Copy the actual application code
-COPY  src/ ./src/
+COPY  . .
 
 # Step 4: Final sync to link the application code
 
