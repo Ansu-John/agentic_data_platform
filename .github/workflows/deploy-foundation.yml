@@ -5,10 +5,12 @@ on:
     branches: [ "main" ]
     paths:
       - 'terraform/environments/dev/01-foundation/**'
+      - ".github/workflows/deploy-foundation.yml"
   pull_request:
     branches: [ "main" ]
     paths:
       - 'terraform/environments/dev/01-foundation/**'
+      - ".github/workflows/deploy-foundation.yml"
 
 permissions:
   id-token: write # Required for AWS OIDC
