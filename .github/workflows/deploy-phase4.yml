@@ -20,7 +20,8 @@ env:
   AWS_REGION: "ap-south-1"
   # Replace with your actual AWS Account ID
   OIDC_ROLE_ARN: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role"
-  TF_WORKING_DIR: "infrastructure/environments/dev/04-consumption"
+  TF_WORKING_DIR: "terraform/environments/dev/04-consumption"
+  APP_WORKING_DIR: "src"
 
 jobs:
   build-and-deploy:
@@ -49,8 +50,9 @@ jobs:
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: "dataplatform-dev-nlq-api"
+          working-directory: ${{ env.APP_WORKING_DIR }}
         run: |
-          docker build --target api_runtime -f src/api/Dockerfile -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker build --target api_runtime -f api/Dockerfile -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
           docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
       - name: Build, Tag, and Push UI Container to ECR
@@ -58,7 +60,7 @@ jobs:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: "dataplatform-dev-streamlit-ui"
         run: |
-          docker build --target ui_runtime -f src/ui/Dockerfile -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker build --target ui_runtime -f ui/Dockerfile -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
           docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
       - name: Setup Terraform
