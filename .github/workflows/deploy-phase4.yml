@@ -8,6 +8,7 @@ on:
       - 'src/api/**'
       - 'src/ui/**'
       - 'infrastructure/environments/dev/04-consumption/**'
+      - ".github/workflows/deploy-phase4.yml"
   workflow_dispatch: # Allows manual trigger from the GitHub UI
 
 # Required permissions to request OIDC JWT tokens from GitHub
@@ -16,9 +17,9 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: "us-east-1"
+  AWS_REGION: "ap-south-1"
   # Replace with your actual AWS Account ID
-  OIDC_ROLE_ARN: "arn:aws:iam::123456789012:role/dataplatform-dev-github-deploy-role"
+  OIDC_ROLE_ARN: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role"
   TF_WORKING_DIR: "infrastructure/environments/dev/04-consumption"
 
 jobs:
