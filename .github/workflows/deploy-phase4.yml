@@ -1,39 +1,64 @@
-name: Deploy Phase 4 - Consumption Dashboard
+name: Deploy Phase 4 (Consumption AI)
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
     paths:
-      - "src/dashboard/**"
-      - "terraform/environments/dev/04-consumption/**"
-      - ".github/workflows/deploy-phase4.yml"
-  workflow_dispatch: # Allows manual trigger from GitHub UI
+      - 'src/api/**'
+      - 'src/ui/**'
+      - 'infrastructure/environments/dev/04-consumption/**'
+  workflow_dispatch: # Allows manual trigger from the GitHub UI
 
-env:
-  AWS_REGION: ap-south-1
-  TF_WORKING_DIR: terraform/environments/dev/04-consumption
-  APP_WORKING_DIR: src/dashboard
-  DK_WORKING_DIR: src
-  PROJECT_NAME: dataplatform
-  ENV: dev
-
+# Required permissions to request OIDC JWT tokens from GitHub
 permissions:
   id-token: write
   contents: read
 
+env:
+  AWS_REGION: "us-east-1"
+  # Replace with your actual AWS Account ID
+  OIDC_ROLE_ARN: "arn:aws:iam::123456789012:role/dataplatform-dev-github-deploy-role"
+  TF_WORKING_DIR: "infrastructure/environments/dev/04-consumption"
+
 jobs:
-  infrastructure:
-    name: Provision Infrastructure
+  build-and-deploy:
+    name: Build Containers & Apply Terraform
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS Credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
+          role-to-assume: ${{ env.OIDC_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set Image Tag
+        id: vars
+        run: echo "IMAGE_TAG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Build, Tag, and Push API Container to ECR
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: "dataplatform-dev-nlq-api"
+        run: |
+          docker build --target api_runtime -f src/api/Dockerfile -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+
+      - name: Build, Tag, and Push UI Container to ECR
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: "dataplatform-dev-streamlit-ui"
+        run: |
+          docker build --target ui_runtime -f src/ui/Dockerfile -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -44,47 +69,14 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init
 
+      - name: Terraform Plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: >
+          terraform plan 
+          -var="api_image_tag=${{ env.IMAGE_TAG }}" 
+          -var="ui_image_tag=${{ env.IMAGE_TAG }}" 
+          -out=tfplan
+
       - name: Terraform Apply
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform apply -auto-approve
-
-  application:
-    name: Build & Deploy Dashboard
-    runs-on: ubuntu-latest
-    needs: infrastructure # Wait for TF to finish before deploying app
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build, Tag, and Push Image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ env.PROJECT_NAME }}-${{ env.ENV }}-dashboard
-          IMAGE_TAG: ${{ github.sha }}
-        working-directory: ${{ env.DK_WORKING_DIR }}
-        run: |
-          # Build the Docker image
-          docker build -f dashboard/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          
-          # Push to AWS ECR
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
-      - name: Force ECS Deployment
-        run: |
-          aws ecs update-service \
-            --cluster ${{ env.PROJECT_NAME }}-${{ env.ENV }}-ai-cluster \
-            --service ${{ env.PROJECT_NAME }}-${{ env.ENV }}-dashboard-svc \
-            --force-new-deployment \
-            --region ${{ env.AWS_REGION }}
+        run: terraform apply -auto-approve tfplan
