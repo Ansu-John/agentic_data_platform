@@ -7,6 +7,7 @@ module "kms" {
   description = "KMS key for ${var.environment} Data Lake S3 buckets"
 }
 
+
 module "s3_datalake" {
   source = "../../../modules/s3_datalake"
 

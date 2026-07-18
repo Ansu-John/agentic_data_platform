@@ -12,6 +12,7 @@ on:
       - 'terraform/environments/dev/01-foundation/**'
       - ".github/workflows/deploy-foundation.yml"
 
+      
 permissions:
   id-token: write # Required for AWS OIDC
   contents: read
