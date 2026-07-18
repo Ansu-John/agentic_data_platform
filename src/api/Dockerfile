@@ -8,7 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /workspace_build
 
 # Use local package resolution patterns from the repository roots
-COPY pyproject.toml ./
+COPY src/pyproject.toml ./
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --target=/workspace_build/dependencies .
 

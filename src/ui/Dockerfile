@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /workspace_build
-COPY pyproject.toml ./
+COPY src/pyproject.toml ./
 RUN pip install --no-cache-dir --target=/workspace_build/dependencies .
 
 # -------------------------------------------------------------
