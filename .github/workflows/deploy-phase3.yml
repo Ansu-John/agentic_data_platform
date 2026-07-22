@@ -7,7 +7,7 @@ on:
       - "src/agent/**"
       - "terraform/environments/dev/03-ai-dq-agent/**"
       - ".github/workflows/deploy-phase3.yml"
-      
+
 permissions:
   id-token: write
   contents: read
