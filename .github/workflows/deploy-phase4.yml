@@ -22,7 +22,6 @@ env:
   OIDC_ROLE_ARN: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role"
   TF_WORKING_DIR: "terraform/environments/dev/04-consumption"
   APP_WORKING_DIR: "src"
-
 jobs:
   build-and-deploy:
     name: Build Containers & Apply Terraform
@@ -38,6 +37,28 @@ jobs:
           role-to-assume: ${{ env.OIDC_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # 1. SETUP AND INIT TERRAFORM FIRST
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.0"
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      # 2. TARGETED APPLY FOR ECR REPOSITORIES
+      - name: Provision ECR Repositories First (Targeted Apply)
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          # Pass dummy tags so the plan doesn't fail if the task definitions depend on them
+          TF_VAR_api_image_tag: "placeholder"
+          TF_VAR_ui_image_tag: "placeholder"
+        run: |
+          # Replace these resource addresses with the exact names used in your Phase 4 Terraform code
+          terraform apply -target="aws_ecr_repository.api_repo" -target="aws_ecr_repository.ui_repo" -auto-approve
+
+      # 3. LOGIN, BUILD, AND PUSH DOCKER IMAGES
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -50,28 +71,19 @@ jobs:
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: "dataplatform-dev-nlq-api"
-        # Run from root, but point the file (-f) to the src directory
         run: |
-          docker build --target api_runtime -f src/api/Dockerfile -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
-          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+          docker build --target api_runtime -f src/api/Dockerfile -t $REGISTRY/$REPOSITORY:${{ env.IMAGE_TAG }} .
+          docker push $REGISTRY/$REPOSITORY:${{ env.IMAGE_TAG }}
 
       - name: Build, Tag, and Push UI Container to ECR
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: "dataplatform-dev-streamlit-ui"
         run: |
-          docker build --target ui_runtime -f src/ui/Dockerfile -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
-          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+          docker build --target ui_runtime -f src/ui/Dockerfile -t $REGISTRY/$REPOSITORY:${{ env.IMAGE_TAG }} .
+          docker push $REGISTRY/$REPOSITORY:${{ env.IMAGE_TAG }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.5.0"
-
-      - name: Terraform Init
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform init
-
+      # 4. DEPLOY REMAINING INFRASTRUCTURE
       - name: Terraform Plan
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: >
