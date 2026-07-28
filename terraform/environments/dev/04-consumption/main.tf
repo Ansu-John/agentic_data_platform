@@ -31,15 +31,21 @@ module "ecs_nlq_api" {
   silver_bucket_arn  =  "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}"
   
   # Inject variables specific to runtime configurations
-  environment_variables = [
-    { name = "ENVIRONMENT", value = var.environment },
-    { name = "ATHENA_WORKGROUP", value = module.athena_workgroup.workgroup_name },
-    { name = "GLUE_DATABASE", value = "dataplatform_${var.environment}_ai_catalog" }
-  ]
+  environment_variables = {
+    ENVIRONMENT      = var.environment
+    ATHENA_WORKGROUP = module.athena_workgroup.workgroup_name
+    GLUE_DATABASE    = "dataplatform_${var.environment}_ai_catalog"
+  }
 }
 
+module "dynamodb_checkpoints" {
+  source       = "../../../modules/dynamodb_state"
+  table_name   = "langgraph-checkpoints-${var.environment}"
+  billing_mode = "PAY_PER_REQUEST"
+  tags         = var.tags
+}
 # 4. Deploy the Streamlit Interface via your generic ECS module
-module "ecs_streamlit_ui" {
+module "" {
   source             = "../../../modules/ecs_fargate"
   service_name       = "streamlit-ui"
   environment        = var.environment
@@ -54,7 +60,7 @@ module "ecs_streamlit_ui" {
   dynamodb_table_arn = module.dynamodb_checkpoints.table_arn
   silver_bucket_arn  =  "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}"
   
-  environment_variables = [
-    { name = "API_URL", value = "http://${module.alb.alb_dns_name}/api/v1" }
-  ]
+  environment_variables = {
+    API_URL = "http://${module.alb.alb_dns_name}/api/v1"
+  }
 }
