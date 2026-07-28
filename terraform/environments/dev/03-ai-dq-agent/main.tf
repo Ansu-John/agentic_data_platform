@@ -23,9 +23,9 @@ module "ai_dq_agent_compute" {
   kms_key_arn        = data.terraform_remote_state.foundation.outputs.kms_key_arn 
 
   service_name = "ai_dq_agent"
-  task_role_arn      = aws_iam_role.task_role.arn
+  #task_role_arn      = aws_iam_role.task_role.arn
   container_port     = 8201
-  target_group_arn   = module.ecs_fargate.target_group_arn
+  #target_group_arn   = module.ecs_fargate.target_group_arn
 
   # Injecting environment variables into the container
   environment_variables = {
