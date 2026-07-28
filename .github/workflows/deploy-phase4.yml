@@ -56,7 +56,7 @@ jobs:
           TF_VAR_ui_image_tag: "placeholder"
         run: |
           # Replace these resource addresses with the exact names used in your Phase 4 Terraform code
-          terraform apply -target="aws_ecr_repository.api_repo" -target="aws_ecr_repository.ui_repo" -auto-approve
+          terraform apply -target="module.ecs_nlq_api.aws_ecr_repository.main" -target="module.ecs_streamlit_ui.aws_ecr_repository.main" -auto-approve
 
       # 3. LOGIN, BUILD, AND PUSH DOCKER IMAGES
       - name: Login to Amazon ECR

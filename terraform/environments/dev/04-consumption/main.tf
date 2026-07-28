@@ -45,7 +45,7 @@ module "dynamodb_checkpoints" {
   tags         = var.tags
 }
 # 4. Deploy the Streamlit Interface via your generic ECS module
-module "" {
+module "ecs_streamlit_ui" {
   source             = "../../../modules/ecs_fargate"
   service_name       = "streamlit-ui"
   environment        = var.environment
