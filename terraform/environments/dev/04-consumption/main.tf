@@ -45,8 +45,11 @@ module "ecs_nlq_api" {
   project_name       = var.project_name 
   ecr_image_uri      = "${aws_ecr_repository.api_repo.repository_url}:${var.api_image_tag}"
   dynamodb_table_arn = data.aws_dynamodb_table.checkpoints.arn
-  silver_bucket_arn  =  "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}"
+  silver_bucket_arn  = "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}"
   
+  # ADD THIS LINE:
+  kms_key_arn        = data.terraform_remote_state.foundation.outputs.kms_key_arn
+
   # Inject variables specific to runtime configurations
   environment_variables = {
     ENVIRONMENT      = var.environment
@@ -68,8 +71,12 @@ module "ecs_streamlit_ui" {
 
   project_name       = var.project_name 
   ecr_image_uri      = "${aws_ecr_repository.ui_repo.repository_url}:${var.ui_image_tag}"
-  dynamodb_table_arn = data.aws_dynamodb_table.checkpoints.arn
-  silver_bucket_arn  =  "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}"
+
+ dynamodb_table_arn = data.aws_dynamodb_table.checkpoints.arn
+  silver_bucket_arn  = "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}"
+  
+  # ADD THIS LINE:
+  kms_key_arn        = data.terraform_remote_state.foundation.outputs.kms_key_arn
   
   environment_variables = {
     API_URL = "http://${module.alb.alb_dns_name}/api/v1"
