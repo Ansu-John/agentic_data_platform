@@ -106,10 +106,6 @@ module "alb" {
   source             = "../../../modules/alb"
   environment        = var.environment
   vpc_id             = data.terraform_remote_state.foundation.outputs.vpc_id
-  
-  # Ensure this points to public_subnet_ids
   public_subnets     = data.terraform_remote_state.foundation.outputs.private_subnet_ids 
-  
-  # THIS IS THE CRITICAL FIX FOR LINE 14:
   security_group_ids = [data.terraform_remote_state.agent.outputs.security_group_id]
 }
