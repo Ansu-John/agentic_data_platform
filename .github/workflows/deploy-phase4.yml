@@ -7,7 +7,7 @@ on:
     paths:
       - 'src/api/**'
       - 'src/ui/**'
-      - 'infrastructure/environments/dev/04-consumption/**'
+      - 'terraform/environments/dev/04-consumption/**'
       - ".github/workflows/deploy-phase4.yml"
   workflow_dispatch: # Allows manual trigger from the GitHub UI
 
