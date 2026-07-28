@@ -65,8 +65,8 @@ resource "aws_iam_policy" "nlq_execution_policy" {
           "s3:ListBucket"
         ]
         Resource = [
-          data.terraform_remote_state.data_pipeline.outputs.silver_bucket_arn,
-          "${data.terraform_remote_state.data_pipeline.outputs.silver_bucket_arn}/*"
+          "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}",
+          "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}/*"
         ]
       },
       {
@@ -89,7 +89,7 @@ resource "aws_iam_policy" "nlq_execution_policy" {
           "kms:Decrypt",
           "kms:GenerateDataKey"
         ]
-        Resource = [data.terraform_remote_state.data_pipeline.outputs.kms_key_arn]
+        Resource = [data.terraform_remote_state.foundation.outputs.kms_key_arn]
       }
     ]
   })
