@@ -5,13 +5,13 @@ module "athena_workgroup" {
   kms_key_arn = data.terraform_remote_state.foundation.outputs.kms_key_arn
 }
 
-# 2. Public Ingress Ingress Load Balancer for routing API and UI traffic
+# 2. Public Ingress Load Balancer for routing API and UI traffic
 module "alb" {
   source             = "../../../modules/alb"
   environment        = var.environment
   vpc_id             = data.terraform_remote_state.foundation.outputs.vpc_id
-  public_subnets     = data.terraform_remote_state.foundation.outputs.private_subnet_ids
-  security_group_ids = [data.terraform_remote_state.foundation.outputs.alb_security_group_id]
+  public_subnets     = data.terraform_remote_state.foundation.outputs.private_subnet_ids 
+  security_group_ids = [data.terraform_remote_state.agent.outputs.security_group_id]
 }
 
 module "dynamodb_checkpoints" {
@@ -99,13 +99,4 @@ resource "aws_security_group" "alb_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-}
-
-# 2. Public Ingress Load Balancer for routing API and UI traffic
-module "alb" {
-  source             = "../../../modules/alb"
-  environment        = var.environment
-  vpc_id             = data.terraform_remote_state.foundation.outputs.vpc_id
-  public_subnets     = data.terraform_remote_state.foundation.outputs.private_subnet_ids 
-  security_group_ids = [data.terraform_remote_state.agent.outputs.security_group_id]
 }
