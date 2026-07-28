@@ -113,4 +113,5 @@ resource "aws_cloudwatch_event_target" "ecs_dq_agent_target" {
       assign_public_ip = false
     }
   }
+  
 }
