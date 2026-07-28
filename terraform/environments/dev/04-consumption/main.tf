@@ -14,6 +14,27 @@ module "alb" {
   security_group_ids = [data.terraform_remote_state.data_pipeline.outputs.alb_security_group_id]
 }
 
+module "dynamodb_checkpoints" {
+  source       = "../../../modules/dynamodb_state"
+  table_name   = "langgraph-checkpoints-${var.environment}"
+  billing_mode = "PAY_PER_REQUEST"
+  tags         = var.tags
+}
+
+# Create ECR Repository for the NLQ API
+resource "aws_ecr_repository" "api_repo" {
+  name                 = "${var.project_name}-${var.environment}-nlq-api"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
+}
+
+# Create ECR Repository for the Streamlit UI
+resource "aws_ecr_repository" "ui_repo" {
+  name                 = "${var.project_name}-${var.environment}-streamlit-ui"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
+}
+
 # 3. Deploy the FastAPI NLQ Backend Service via your generic ECS module
 module "ecs_nlq_api" {
   source             = "../../../modules/ecs_fargate"
@@ -26,7 +47,7 @@ module "ecs_nlq_api" {
   target_group_arn   = module.alb.api_target_group_arn
   
   project_name       = var.project_name 
-  ecr_image_uri      = var.api_image_tag 
+  ecr_image_uri      = "${aws_ecr_repository.api_repo.repository_url}:${var.api_image_tag}"
   dynamodb_table_arn = module.dynamodb_checkpoints.table_arn
   silver_bucket_arn  =  "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}"
   
@@ -38,12 +59,6 @@ module "ecs_nlq_api" {
   }
 }
 
-module "dynamodb_checkpoints" {
-  source       = "../../../modules/dynamodb_state"
-  table_name   = "langgraph-checkpoints-${var.environment}"
-  billing_mode = "PAY_PER_REQUEST"
-  tags         = var.tags
-}
 # 4. Deploy the Streamlit Interface via your generic ECS module
 module "ecs_streamlit_ui" {
   source             = "../../../modules/ecs_fargate"
@@ -56,7 +71,7 @@ module "ecs_streamlit_ui" {
   target_group_arn   = module.alb.ui_target_group_arn
 
   project_name       = var.project_name 
-  ecr_image_uri      = var.ui_image_tag 
+  ecr_image_uri      = "${aws_ecr_repository.ui_repo.repository_url}:${var.ui_image_tag}"
   dynamodb_table_arn = module.dynamodb_checkpoints.table_arn
   silver_bucket_arn  =  "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}"
   
