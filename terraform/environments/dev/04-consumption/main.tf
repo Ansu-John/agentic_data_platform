@@ -10,7 +10,7 @@ module "alb" {
   source             = "../../../modules/alb"
   environment        = var.environment
   vpc_id             = data.terraform_remote_state.foundation.outputs.vpc_id
-  public_subnets     = data.terraform_remote_state.foundation.outputs.public_subnets
+  public_subnets     = data.terraform_remote_state.foundation.outputs.private_subnet_ids
   security_group_ids = [data.terraform_remote_state.foundation.outputs.alb_security_group_id]
 }
 
@@ -77,5 +77,26 @@ module "ecs_streamlit_ui" {
   
   environment_variables = {
     API_URL = "http://${module.alb.alb_dns_name}/api/v1"
+  }
+}
+
+# Restored ALB Security Group
+resource "aws_security_group" "alb_sg" {
+  name        = "${var.project_name}-${var.environment}-alb-sg"
+  description = "Allow inbound HTTP traffic to the dashboard ALB"
+  vpc_id      = data.terraform_remote_state.foundation.outputs.vpc_id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
