@@ -111,5 +111,5 @@ module "alb" {
   public_subnets     = data.terraform_remote_state.foundation.outputs.private_subnet_ids 
   
   # THIS IS THE CRITICAL FIX FOR LINE 14:
-  security_group_ids = [aws_security_group.alb_sg.id] 
+  security_group_ids = [data.terraform_remote_state.agent.outputs.security_group_id]
 }
