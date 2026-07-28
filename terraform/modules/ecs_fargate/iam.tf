@@ -2,7 +2,7 @@ data "aws_caller_identity" "current" {}
 
 # Task Execution Role (Allows ECS to pull images and write CloudWatch logs)
 resource "aws_iam_role" "execution_role" {
-  name = "${var.project_name}-${var.environment}-ecs-exec-role"
+  name = "${var.project_name}-${var.environment}-${var.service_name}-ecs-exec-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -62,12 +62,12 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
 
 # Task Role (Permissions for the Python LangGraph Application)
 resource "aws_iam_role" "task_role" {
-  name               = "${var.project_name}-${var.environment}-agent-task-role"
+  name               = "${var.project_name}-${var.environment}-${var.service_name}-agent-task-role"
   assume_role_policy = aws_iam_role.execution_role.assume_role_policy
 }
 
 resource "aws_iam_policy" "agent_permissions" {
-  name        = "${var.project_name}-${var.environment}-agent-policy"
+  name        = "${var.project_name}-${var.environment}-${var.service_name}-agent-policy"
   description = "Permissions for AI DQ Agent to access Bedrock, Athena, Glue, and S3"
   policy = jsonencode({
     Version = "2012-10-17"

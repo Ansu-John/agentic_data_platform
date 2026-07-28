@@ -1,3 +1,6 @@
+data "aws_dynamodb_table" "checkpoints" {
+  name = "langgraph-checkpoints-${var.environment}"
+}
 # 1. Isolated Athena Workgroup for NLQ execution governance
 module "athena_workgroup" {
   source      = "../../../modules/athena"
@@ -12,13 +15,6 @@ module "alb" {
   vpc_id             = data.terraform_remote_state.foundation.outputs.vpc_id
   public_subnets     = data.terraform_remote_state.foundation.outputs.private_subnet_ids 
   security_group_ids = [data.terraform_remote_state.agent.outputs.security_group_id]
-}
-
-module "dynamodb_checkpoints" {
-  source       = "../../../modules/dynamodb_state"
-  table_name   = "langgraph-checkpoints-${var.environment}"
-  billing_mode = "PAY_PER_REQUEST"
-  tags         = var.tags
 }
 
 # Create ECR Repository for the NLQ API
@@ -48,7 +44,7 @@ module "ecs_nlq_api" {
   
   project_name       = var.project_name 
   ecr_image_uri      = "${aws_ecr_repository.api_repo.repository_url}:${var.api_image_tag}"
-  dynamodb_table_arn = module.dynamodb_checkpoints.table_arn
+  dynamodb_table_arn = data.aws_dynamodb_table.checkpoints.arn
   silver_bucket_arn  =  "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}"
   
   # Inject variables specific to runtime configurations
@@ -72,7 +68,7 @@ module "ecs_streamlit_ui" {
 
   project_name       = var.project_name 
   ecr_image_uri      = "${aws_ecr_repository.ui_repo.repository_url}:${var.ui_image_tag}"
-  dynamodb_table_arn = module.dynamodb_checkpoints.table_arn
+  dynamodb_table_arn = data.aws_dynamodb_table.checkpoints.arn
   silver_bucket_arn  =  "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}"
   
   environment_variables = {
