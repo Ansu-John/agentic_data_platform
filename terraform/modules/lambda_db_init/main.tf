@@ -32,6 +32,8 @@ resource "aws_lambda_function" "db_init" {
   runtime          = "python3.11"
   timeout          = 60
   
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  
   vpc_config {
     subnet_ids         = var.subnet_ids
     security_group_ids = [var.security_group_id]
