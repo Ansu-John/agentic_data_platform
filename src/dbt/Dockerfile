@@ -14,6 +14,6 @@ RUN pip install --no-cache-dir \
     dbt-core>=1.7.0 \
     dbt-athena-community>=1.7.1
 
-COPY src/dbt/ /app/
+COPY src/dbt/ /app/src/dbt/
 
 ENTRYPOINT ["sh", "-c", "dbt run --profiles-dir . && dbt test --profiles-dir ."]

@@ -119,3 +119,4 @@ jobs:
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}],assignPublicIp=DISABLED}" \
             --region ${{ env.AWS_REGION }}
+            
