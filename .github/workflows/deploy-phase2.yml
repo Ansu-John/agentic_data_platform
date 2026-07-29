@@ -147,4 +147,19 @@ jobs:
       - name: Provision Remaining Infrastructure
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform apply -auto-approve
-        
+
+        # NEW STEP: Package the Lambda with Linux C-bindings for psycopg2
+      - name: Package Database Init Lambda
+        run: |
+          echo "Packaging Lambda function for AWS..."
+          mkdir -p src/db/package
+          cp src/db/init_db.py src/db/package/
+          
+          # Install the Linux-compatible psycopg2 binary directly into the package folder
+          pip install psycopg2-binary -t src/db/package/
+          
+          echo "Lambda packaging complete."
+
+      - name: Provision Remaining Infrastructure
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -auto-approve
