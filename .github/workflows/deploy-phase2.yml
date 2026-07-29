@@ -150,18 +150,27 @@ jobs:
 
         # NEW STEP: Package the Lambda with Linux C-bindings for psycopg2
       - name: Package Database Init Lambda
+
         run: |
           echo "Packaging Lambda function for AWS..."
+          
+          # 1. Destroy any old cached folders to prevent ghost files
+          rm -rf src/db/package
           mkdir -p src/db/package
+          
+          # 2. Copy the latest Python script
           cp src/db/init_db.py src/db/package/
           
-          # Install the Linux-compatible pg8000 directly into the package folder
-          pip install pg8000 -t src/db/package/
+          # 3. Explicitly install the pure-python pg8000 driver
+          python3 -m pip install pg8000 -t src/db/package/
+          
+          # 4. CRITICAL: Grant AWS Lambda the required Linux read-permissions!
+          chmod -R 755 src/db/package/
           
           echo "Lambda packaging complete."
+
+
 
       - name: Provision Remaining Infrastructure
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform apply -auto-approve
-
-        
