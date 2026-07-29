@@ -74,7 +74,7 @@ resource "aws_iam_policy" "nlq_execution_policy" {
           "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["gold"]}/*"
         ]
       },
-            # Read/Write Athena Query Results
+      # Read/Write Athena Query Results
       {
         Effect = "Allow"
         Action = [

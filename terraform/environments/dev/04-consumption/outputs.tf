@@ -15,6 +15,6 @@ output "dbt_subnet_ids" {
 
 output "dbt_cluster_arn" {
   # Now correctly referencing the exact variable name exported by Phase 3
-  value       = data.terraform_remote_state.agent.outputs.ecs_cluster_arn 
+  value       = data.terraform_remote_state.agent.outputs.ecs_cluster_arn
   description = "The ARN of the ECS Cluster deployed in Phase 3"
 }
