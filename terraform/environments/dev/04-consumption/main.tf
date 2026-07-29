@@ -31,6 +31,47 @@ resource "aws_ecr_repository" "ui_repo" {
   force_delete         = true
 }
 
+# ECR Repository for dbt transformation runner
+resource "aws_ecr_repository" "dbt_repo" {
+  name                 = "${var.project_name}-${var.environment}-dbt-runner"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
+}
+
+# ECS Task Definition for running dbt Gold Transformation jobs on demand
+resource "aws_ecs_task_definition" "dbt_runner" {
+  family                   = "${var.project_name}-${var.environment}-dbt-runner"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = 512
+  memory                   = 1024
+  execution_role_arn       = aws_iam_role.nlq_task_role.arn
+  task_role_arn            = aws_iam_role.nlq_task_role.arn
+
+  container_definitions = jsonencode([{
+    name      = "dbt-runner"
+    image     = "${aws_ecr_repository.dbt_repo.repository_url}:${var.dbt_image_tag}"
+    essential = true
+    environment = [
+      { name = "AWS_REGION", value = var.aws_region },
+      { name = "ENVIRONMENT", value = var.environment },
+      { name = "GLUE_DATABASE", value = "dataplatform_${var.environment}_ai_catalog" },
+      { name = "ATHENA_WORKGROUP", value = module.athena_workgroup.workgroup_name },
+      { name = "ATHENA_RESULTS_BUCKET", value = replace(module.athena_workgroup.athena_results_bucket_arn, "arn:aws:s3:::", "") },
+      { name = "GOLD_BUCKET_NAME", value = data.terraform_remote_state.foundation.outputs.datalake_bucket_names["gold"] }
+    ]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = "/ecs/${var.project_name}-${var.environment}-dbt"
+        "awslogs-region"        = var.aws_region
+        "awslogs-stream-prefix" = "dbt"
+        "awslogs-create-group"  = "true"
+      }
+    }
+  }])
+}
+
 # 3. Deploy the FastAPI NLQ Backend Service via your generic ECS module
 module "ecs_nlq_api" {
   source             = "../../../modules/ecs_fargate"

@@ -1,4 +1,4 @@
-name: Deploy Phase 4 (Consumption AI)
+name: Deploy Phase 4 & Gold dbt Transformations
 
 on:
   push:
@@ -7,24 +7,23 @@ on:
     paths:
       - 'src/api/**'
       - 'src/ui/**'
+      - 'src/dbt/**'
       - 'terraform/environments/dev/04-consumption/**'
       - ".github/workflows/deploy-phase4.yml"
   workflow_dispatch: # Allows manual trigger from the GitHub UI
 
-# Required permissions to request OIDC JWT tokens from GitHub
 permissions:
   id-token: write
   contents: read
 
 env:
   AWS_REGION: "ap-south-1"
-  # Replace with your actual AWS Account ID
   OIDC_ROLE_ARN: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role"
   TF_WORKING_DIR: "terraform/environments/dev/04-consumption"
-  APP_WORKING_DIR: "src"
+
 jobs:
   build-and-deploy:
-    name: Build Containers & Apply Terraform
+    name: Build Containers, Apply Infrastructure & Materialize Gold
     runs-on: ubuntu-latest
     
     steps:
@@ -48,15 +47,18 @@ jobs:
         run: terraform init
 
       # 2. TARGETED APPLY FOR ECR REPOSITORIES
-      - name: Provision ECR Repositories First (Targeted Apply)
+      - name: Provision ECR Repositories (Targeted Apply)
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          # Pass dummy tags so the plan doesn't fail if the task definitions depend on them
           TF_VAR_api_image_tag: "placeholder"
           TF_VAR_ui_image_tag: "placeholder"
+          TF_VAR_dbt_image_tag: "placeholder"
         run: |
-          # Replace these resource addresses with the exact names used in your Phase 4 Terraform code
-          terraform apply -target="aws_ecr_repository.api_repo" -target="aws_ecr_repository.ui_repo" -auto-approve
+          terraform apply \
+            -target="aws_ecr_repository.api_repo" \
+            -target="aws_ecr_repository.ui_repo" \
+            -target="aws_ecr_repository.dbt_repo" \
+            -auto-approve
 
       # 3. LOGIN, BUILD, AND PUSH DOCKER IMAGES
       - name: Login to Amazon ECR
@@ -67,7 +69,7 @@ jobs:
         id: vars
         run: echo "IMAGE_TAG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Build, Tag, and Push API Container to ECR
+      - name: Build and Push API Container
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: "dataplatform-dev-nlq-api"
@@ -75,7 +77,7 @@ jobs:
           docker build --target api_runtime -f src/api/Dockerfile -t $REGISTRY/$REPOSITORY:${{ env.IMAGE_TAG }} .
           docker push $REGISTRY/$REPOSITORY:${{ env.IMAGE_TAG }}
 
-      - name: Build, Tag, and Push UI Container to ECR
+      - name: Build and Push UI Container
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: "dataplatform-dev-streamlit-ui"
@@ -83,16 +85,37 @@ jobs:
           docker build --target ui_runtime -f src/ui/Dockerfile -t $REGISTRY/$REPOSITORY:${{ env.IMAGE_TAG }} .
           docker push $REGISTRY/$REPOSITORY:${{ env.IMAGE_TAG }}
 
-      # 4. DEPLOY REMAINING INFRASTRUCTURE
+      - name: Build and Push dbt Runner Container
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: "dataplatform-dev-dbt-runner"
+        run: |
+          docker build -f src/dbt/Dockerfile -t $REGISTRY/$REPOSITORY:${{ env.IMAGE_TAG }} .
+          docker push $REGISTRY/$REPOSITORY:${{ env.IMAGE_TAG }}
+
+      # 4. Provision Full Consumption Infrastructure
       - name: Terraform Plan
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: >
           terraform plan 
           -var="api_image_tag=${{ env.IMAGE_TAG }}" 
           -var="ui_image_tag=${{ env.IMAGE_TAG }}" 
+          -var="dbt_image_tag=${{ env.IMAGE_TAG }}" 
           -out=tfplan
 
       - name: Terraform Apply
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform apply -auto-approve tfplan
         
+      # 5. Trigger dbt Transformation to populate S3 Gold & Athena Glue Catalog
+      - name: Run dbt Gold Transformation Task on Fargate
+        run: |
+          SUBNETS=$(aws cloudformation describe-stacks --stack-name Foundation --query "Stacks[0].Outputs[?OutputKey=='PrivateSubnetIds'].OutputValue" --output text 2>/dev/null || echo "")
+          
+          # Run dbt task in private subnets
+          aws ecs run-task \
+            --cluster "dataplatform-dev-cluster" \
+            --task-definition "dataplatform-dev-dbt-runner" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}],assignPublicIp=DISABLED}" \
+            --region ${{ env.AWS_REGION }}

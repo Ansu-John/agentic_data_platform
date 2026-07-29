@@ -39,17 +39,18 @@ resource "aws_iam_policy" "nlq_execution_policy" {
         ]
         Resource = "*"
       },
-      # Read-only access to Glue Catalog metadata enriched in Phase 3
+      # Glue catalog read/write for dbt Iceberg materializations
       {
         Effect = "Allow"
         Action = [
           "glue:GetDatabase",
           "glue:GetDatabases",
           "glue:GetTable",
-          "glue:GetDatabases",
-          "glue:GetDatabase",
-          "glue:GetTables",
-          "glue:GetPartitions"
+          "glue:CreateTable",
+          "glue:UpdateTable",
+          "glue:DeleteTable",
+          "glue:GetPartitions",
+          "glue:BatchCreatePartition"
         ]
         Resource = [
           "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:catalog",
@@ -62,13 +63,18 @@ resource "aws_iam_policy" "nlq_execution_policy" {
         Effect = "Allow"
         Action = [
           "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
           "s3:ListBucket"
         ]
         Resource = [
           "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}",
-          "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}/*"
+          "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}/*",
+          "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["gold"]}",
+          "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["gold"]}/*"
         ]
       },
+            # Read/Write Athena Query Results
       {
         Effect = "Allow"
         Action = [

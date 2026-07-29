@@ -1,0 +1,23 @@
+version: 2
+
+sources:
+  - name: ai_catalog
+    database: awsdatacatalog
+    schema: "{{ env_var('GLUE_DATABASE', 'dataplatform_dev_ai_catalog') }}"
+    tables:
+      - name: silver_events
+
+models:
+  - name: gold_events_summary
+    description: "Curated Gold Layer Iceberg table aggregating daily event totals and user activity."
+    columns:
+      - name: event_date
+        description: "Truncated event timestamp to date level."
+        tests:
+          - not_null
+      - name: event_type
+        description: "Category of the logged event."
+        tests:
+          - not_null
+      - name: total_events
+        description: "Count of distinct events logged for the date and type."

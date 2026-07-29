@@ -34,3 +34,9 @@ variable "ui_image_tag" {
   description = "Docker image tag for the Streamlit UI application"
   default     = "latest"
 }
+
+variable "dbt_image_tag" {
+  type        = string
+  description = "Docker image tag for the dbt transformation runner container"
+  default     = "latest"
+}
