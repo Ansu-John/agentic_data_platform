@@ -1,8 +1,4 @@
-data "archive_file" "lambda_zip" {
-  type        = "zip"
-  source_dir  = var.source_code_path
-  output_path = "${path.module}/init_db.zip"
-}
+
 
 resource "aws_iam_role" "lambda_role" {
   name = "dataplatform-dev-db-init-role"
@@ -23,7 +19,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
 }
 
 resource "aws_lambda_function" "db_init" {
-  filename         = data.archive_file.lambda_zip.output_path
+  filename         = var.source_code_path
   function_name    = "dataplatform-dev-db-init"
   role             = aws_iam_role.lambda_role.arn
   
@@ -32,8 +28,8 @@ resource "aws_lambda_function" "db_init" {
   runtime          = "python3.11"
   timeout          = 60
   
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
-  
+  source_code_hash = filebase64sha256(var.source_code_path)
+
   vpc_config {
     subnet_ids         = var.subnet_ids
     security_group_ids = [var.security_group_id]
