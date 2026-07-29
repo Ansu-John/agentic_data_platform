@@ -282,7 +282,7 @@ resource "aws_db_subnet_group" "default" {
 resource "aws_rds_cluster" "vector_db" {
   cluster_identifier          = "${var.project}-${var.environment}-ai-vector-db"
   engine                      = "aurora-postgresql"
-  engine_version              = "15.4" # Minimum required version for robust pgvector support
+  engine_version              = "15.3" # Minimum required version for robust pgvector support
   database_name               = "ai_catalog"
   master_username             = "postgres_admin"
   manage_master_user_password = true # Auto-generates password to AWS Secrets Manager
