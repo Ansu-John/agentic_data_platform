@@ -19,15 +19,15 @@ resource "aws_iam_role_policy" "lambda_policy" {
 }
 
 resource "aws_lambda_function" "db_init" {
-  filename         = var.source_code_path
-  function_name    = "dataplatform-dev-db-init"
-  role             = aws_iam_role.lambda_role.arn
-  
-  handler          = "init_db.lambda_handler" 
-  
-  runtime          = "python3.11"
-  timeout          = 60
-  
+  filename      = var.source_code_path
+  function_name = "dataplatform-dev-db-init"
+  role          = aws_iam_role.lambda_role.arn
+
+  handler = "init_db.lambda_handler"
+
+  runtime = "python3.11"
+  timeout = 60
+
   source_code_hash = filebase64sha256(var.source_code_path)
 
   vpc_config {
