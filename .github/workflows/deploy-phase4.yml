@@ -109,14 +109,18 @@ jobs:
         
       # 5. Trigger dbt Transformation to populate S3 Gold & Athena Glue Catalog
       - name: Run dbt Gold Transformation Task on Fargate
+        working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          SUBNETS=$(aws cloudformation describe-stacks --stack-name Foundation --query "Stacks[0].Outputs[?OutputKey=='PrivateSubnetIds'].OutputValue" --output text 2>/dev/null || echo "")
+          # Dynamically fetch the precise subnets and cluster name from Terraform state
+          SUBNETS=$(terraform output -raw dbt_subnet_ids)
+          CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
           
-          # Run dbt task in private subnets
+          echo "Executing dbt task on cluster: $CLUSTER_NAME"
+          echo "Injecting into subnets: $SUBNETS"
+          
           aws ecs run-task \
-            --cluster "dataplatform-dev-cluster" \
+            --cluster "$CLUSTER_NAME" \
             --task-definition "dataplatform-dev-dbt-runner" \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}],assignPublicIp=DISABLED}" \
             --region ${{ env.AWS_REGION }}
-            
