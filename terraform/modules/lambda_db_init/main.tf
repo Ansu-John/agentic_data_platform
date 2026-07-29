@@ -23,13 +23,15 @@ resource "aws_iam_role_policy" "lambda_policy" {
 }
 
 resource "aws_lambda_function" "db_init" {
-  filename      = data.archive_file.lambda_zip.output_path
-  function_name = "dataplatform-dev-db-init"
-  role          = aws_iam_role.lambda_role.arn
-  handler       = "app.lambda_handler"
-  runtime       = "python3.11"
-  timeout       = 60
-
+  filename         = data.archive_file.lambda_zip.output_path
+  function_name    = "dataplatform-dev-db-init"
+  role             = aws_iam_role.lambda_role.arn
+  
+  handler          = "init_db.lambda_handler" 
+  
+  runtime          = "python3.11"
+  timeout          = 60
+  
   vpc_config {
     subnet_ids         = var.subnet_ids
     security_group_ids = [var.security_group_id]
