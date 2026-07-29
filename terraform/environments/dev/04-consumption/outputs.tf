@@ -13,9 +13,8 @@ output "dbt_subnet_ids" {
   description = "Comma-separated private subnets for dbt ECS task execution"
 }
 
-output "ecs_cluster_name" {
-  # Note: If your Phase 3 Terraform output for the cluster was named something 
-  # else (e.g., ecs_cluster_id), change the ".ecs_cluster_name" attribute below to match.
-  value       = data.terraform_remote_state.agent.outputs.ecs_cluster_name 
-  description = "The exact ECS Cluster name deployed in Phase 3"
+output "dbt_cluster_arn" {
+  # Now correctly referencing the exact variable name exported by Phase 3
+  value       = data.terraform_remote_state.agent.outputs.ecs_cluster_arn 
+  description = "The ARN of the ECS Cluster deployed in Phase 3"
 }

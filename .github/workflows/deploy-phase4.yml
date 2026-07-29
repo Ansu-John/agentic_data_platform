@@ -111,15 +111,15 @@ jobs:
       - name: Run dbt Gold Transformation Task on Fargate
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          # Dynamically fetch the precise subnets and cluster name from Terraform state
+          # Dynamically fetch the precise subnets and cluster ARN from Terraform state
           SUBNETS=$(terraform output -raw dbt_subnet_ids)
-          CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
+          CLUSTER_ARN=$(terraform output -raw dbt_cluster_arn)
           
-          echo "Executing dbt task on cluster: $CLUSTER_NAME"
+          echo "Executing dbt task on cluster: $CLUSTER_ARN"
           echo "Injecting into subnets: $SUBNETS"
           
           aws ecs run-task \
-            --cluster "$CLUSTER_NAME" \
+            --cluster "$CLUSTER_ARN" \
             --task-definition "dataplatform-dev-dbt-runner" \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}],assignPublicIp=DISABLED}" \
