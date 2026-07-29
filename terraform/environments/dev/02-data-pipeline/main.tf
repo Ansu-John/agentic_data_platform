@@ -255,16 +255,16 @@ resource "aws_s3_bucket_notification" "bronze_ingest_notification" { # Note: Ens
 # ===================================================================
 
 resource "aws_security_group" "aurora_sg" {
-  name        = "${var.project}-${var.environment}-aurora-sg"
-  vpc_id      = data.terraform_remote_state.foundation.outputs.vpc_id
-  
+  name   = "${var.project}-${var.environment}-aurora-sg"
+  vpc_id = data.terraform_remote_state.foundation.outputs.vpc_id
+
   ingress {
     description = "Allow PostgreSQL traffic from VPC"
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
     # Allows everything in the VPC to talk to the DB (EMR, ECS, Lambda)
-    cidr_blocks = ["10.0.0.0/16"] 
+    cidr_blocks = ["10.0.0.0/16"]
   }
   egress {
     from_port   = 0
@@ -286,11 +286,11 @@ resource "aws_rds_cluster" "vector_db" {
   database_name               = "ai_catalog"
   master_username             = "postgres_admin"
   manage_master_user_password = true # Auto-generates password to AWS Secrets Manager
-  
+
   vpc_security_group_ids = [aws_security_group.aurora_sg.id]
   db_subnet_group_name   = aws_db_subnet_group.default.name
   skip_final_snapshot    = true
-  
+
   serverlessv2_scaling_configuration {
     min_capacity = 0.5
     max_capacity = 2.0
@@ -317,12 +317,12 @@ resource "aws_ssm_parameter" "db_host" {
 module "db_init_lambda" {
   source = "../../../modules/lambda_db_init"
 
-  vpc_id              = data.terraform_remote_state.foundation.outputs.vpc_id
-  subnet_ids          = data.terraform_remote_state.foundation.outputs.private_subnet_ids
-  security_group_id   = aws_security_group.aurora_sg.id
-  cluster_endpoint    = aws_rds_cluster.vector_db.endpoint
-  database_name       = aws_rds_cluster.vector_db.database_name
-  secret_arn          = aws_rds_cluster.vector_db.master_user_secret[0].secret_arn
-  
+  vpc_id            = data.terraform_remote_state.foundation.outputs.vpc_id
+  subnet_ids        = data.terraform_remote_state.foundation.outputs.private_subnet_ids
+  security_group_id = aws_security_group.aurora_sg.id
+  cluster_endpoint  = aws_rds_cluster.vector_db.endpoint
+  database_name     = aws_rds_cluster.vector_db.database_name
+  secret_arn        = aws_rds_cluster.vector_db.master_user_secret[0].secret_arn
+
   depends_on = [aws_rds_cluster_instance.vector_db_instance]
 }
