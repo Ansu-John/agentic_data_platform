@@ -55,12 +55,6 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform validate
 
-      # Only generate the speculative plan if this is a Pull Request
-      - name: Terraform Plan
-        if: github.event_name == 'pull_request'
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform plan -no-color -out=tfplan
-
   # ===================================================================
   # 2. EXECUTION & ARTIFACT BUILD
   # Runs ONLY when code is successfully merged into the 'main' branch.
@@ -171,7 +165,11 @@ jobs:
           echo "Native zip creation complete."
 
 
+      - name: Terraform Plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform plan -no-color -out=tfplan
+
 
       - name: Provision Remaining Infrastructure
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform apply -auto-approve
+        run: terraform apply -auto-approve tfplan
