@@ -46,6 +46,7 @@ dependencies = [
     { name = "langchain-core" },
     { name = "langgraph" },
     { name = "pandas" },
+    { name = "pg8000" },
     { name = "pyarrow" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -67,7 +68,6 @@ dev = [
     { name = "pytest-mock" },
     { name = "ruff" },
     { name = "types-boto3", extra = ["essential"] },
-    { name = "types-psycopg2" },
 ]
 
 [package.metadata]
@@ -82,6 +82,7 @@ requires-dist = [
     { name = "langchain-core", specifier = ">=0.1.0" },
     { name = "langgraph", specifier = ">=0.0.30" },
     { name = "pandas", specifier = ">=2.2.0" },
+    { name = "pg8000", specifier = ">=1.31.5" },
     { name = "pyarrow", specifier = ">=15.0.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
@@ -103,7 +104,6 @@ dev = [
     { name = "pytest-mock", specifier = ">=3.12.0" },
     { name = "ruff", specifier = ">=0.3.0" },
     { name = "types-boto3", extras = ["essential"], specifier = ">=1.43.47" },
-    { name = "types-psycopg2", specifier = ">=2.9.21.20260724" },
 ]
 
 [[package]]
@@ -1690,6 +1690,19 @@ wheels = [
 ]
 
 [[package]]
+name = "pg8000"
+version = "1.31.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-dateutil" },
+    { name = "scramp" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c8/9a/077ab21e700051e03d8c5232b6bcb9a1a4d4b6242c9a0226df2cfa306414/pg8000-1.31.5.tar.gz", hash = "sha256:46ebb03be52b7a77c03c725c79da2ca281d6e8f59577ca66b17c9009618cae78", size = 118933, upload-time = "2025-09-14T09:16:49.748Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/45/07/5fd183858dff4d24840f07fc845f213cd371a19958558607ba22035dadd7/pg8000-1.31.5-py3-none-any.whl", hash = "sha256:0af2c1926b153307639868d2ee5cef6cd3a7d07448e12736989b10e1d491e201", size = 57816, upload-time = "2025-09-14T09:16:47.798Z" },
+]
+
+[[package]]
 name = "pillow"
 version = "12.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2435,6 +2448,18 @@ wheels = [
 ]
 
 [[package]]
+name = "scramp"
+version = "1.4.15"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "asn1crypto" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5f/d3/6dd9b1e7ff7973eeb6550d0d609c3bdca8f27de2719a837628c9fd44c087/scramp-1.4.15.tar.gz", hash = "sha256:d25cdd3dbc493773647bccb93e4e85bbff0c091141ec8ff8d61bad1e3638082d", size = 20958, upload-time = "2026-07-26T17:49:06.655Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c7/a4/6a6e67a8bdbc17b89537de2886cef62536d47c25b1f1d85ecfa81a4915f1/scramp-1.4.15-py3-none-any.whl", hash = "sha256:9d6102948d9005e3802384a328429dfd67d691a65791007c354ff89895857396", size = 15891, upload-time = "2026-07-26T17:49:04.913Z" },
+]
+
+[[package]]
 name = "setuptools"
 version = "83.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2768,15 +2793,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/79/be/353e9d04a06a48227af527d7e1da5c580f562b87d8b400532e8fe4eac498/types_boto3_sqs-1.43.0.tar.gz", hash = "sha256:a699170d774fb5dfab8d7881e02f102e07706cbfc44874825d4d6ddee77edf61", size = 23183, upload-time = "2026-04-29T23:07:09.111Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/39/c6/6e7daea77680793a1410f134869008f8199ef3c3277c1d6144460cbfd536/types_boto3_sqs-1.43.0-py3-none-any.whl", hash = "sha256:c23e43a13822208d26a946c991ebf9b4ba7194dec5b5537fd4eb850a2a5c25a7", size = 33398, upload-time = "2026-04-29T23:07:06.97Z" },
-]
-
-[[package]]
-name = "types-psycopg2"
-version = "2.9.21.20260724"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d8/29/09ca8f0ad16105193deabcaf8256059e361e9e37ff24551efd9c739e240b/types_psycopg2-2.9.21.20260724.tar.gz", hash = "sha256:db31031c37de823a2b21c787cb84832174fdda2a99a8b1af648206f19cc32f8c", size = 27644, upload-time = "2026-07-24T04:57:36.61Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/cb/90/1e77eb76030bb5feb249ecb41cd7647c6ae831ec7bd2b61a61beecac4029/types_psycopg2-2.9.21.20260724-py3-none-any.whl", hash = "sha256:4f87890dd06cea99e3bb0536330ffc2a7320e69059dc1ee0e2c884ef2718f2b4", size = 24964, upload-time = "2026-07-24T04:57:35.703Z" },
 ]
 
 [[package]]

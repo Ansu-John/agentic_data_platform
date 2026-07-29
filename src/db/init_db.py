@@ -5,9 +5,8 @@ import time
 from typing import Any, cast
 
 import boto3
-import psycopg2
+import pg8000.native.Connection  # type: ignore
 from botocore.exceptions import ClientError
-from psycopg2.extensions import connection
 
 # Configure structured enterprise logging
 logger = logging.getLogger()
@@ -29,25 +28,26 @@ def get_db_credentials(secret_arn: str) -> dict[str, str]:
         logger.error(f"Failed to retrieve secrets: {e}")
         raise e
 
-def get_db_connection(db_host: str, db_name: str, secret_dict: dict[str, str]) -> connection:
+def get_db_connection(db_host: str, db_name: str,
+                      secret_dict: dict[str, str]) -> pg8000.native.Connection:
     """Attempts to connect to Aurora PostgreSQL with exponential backoff."""
     attempt = 0
     while attempt < MAX_RETRIES:
         try:
             logger.info(f"Attempting database connection to {db_host} "
                         f"(Attempt {attempt + 1}/{MAX_RETRIES})...")
-            conn = psycopg2.connect(
+            conn = pg8000.native.Connection(
                 host=db_host,
                 database=db_name,
                 user=secret_dict['username'],
                 password=secret_dict['password'],
-                connect_timeout=10
+                timeout=10
             )
             # DDL commands like CREATE EXTENSION cannot run in a transaction block
             conn.autocommit = True
             logger.info("Database connection established successfully.")
             return conn
-        except psycopg2.OperationalError as e:
+        except Exception as e:
             attempt += 1
             logger.warning(f"Connection failed. Aurora may still be initializing. "
                            f"Retrying in {RETRY_DELAY_SECONDS}s... Error: {e}")
@@ -57,7 +57,7 @@ def get_db_connection(db_host: str, db_name: str, secret_dict: dict[str, str]) -
             time.sleep(RETRY_DELAY_SECONDS)
     raise RuntimeError("Failed to connect to the database: Maximum retries exceeded.")
 
-def initialize_schema(conn: connection) -> None:
+def initialize_schema(conn: Any) -> None:
     """Executes the DDL statements to establish the AI Vector schema."""
     ddl_statements = [
         "CREATE EXTENSION IF NOT EXISTS vector;",

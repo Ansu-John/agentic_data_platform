@@ -23,6 +23,7 @@ dependencies = [
     "streamlit>=1.36.0",
     "fastapi>=0.110.0",
     "uvicorn>=0.29.0",
+    "pg8000>=1.31.5",
 ]
 
 [build-system]
@@ -42,7 +43,6 @@ dev = [
     "pre-commit>=3.6.0",
     "types-boto3[essential]>=1.43.47",
     "pandas-stubs>=3.0.3.260530",
-    "types-psycopg2>=2.9.21.20260724",
 ]
 
 [tool.ruff]
