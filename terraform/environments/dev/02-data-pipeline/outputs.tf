@@ -44,3 +44,20 @@ output "lambda_trigger_name" {
   description = "The name of the S3-triggered Lambda function"
   value       = module.ingest_trigger.lambda_function_name
 }
+# ===================================================================
+# 4. DATABASE & AI GOLD LAYER OUTPUTS
+# ===================================================================
+output "database_endpoint" {
+  description = "The endpoint of the Aurora PostgreSQL Vector Database"
+  value       = aws_rds_cluster.vector_db.endpoint
+}
+
+output "database_secret_arn" {
+  description = "The ARN of the Secrets Manager secret containing the generated DB password"
+  value       = aws_rds_cluster.vector_db.master_user_secret[0].secret_arn
+}
+
+output "database_security_group_id" {
+  description = "The Security Group ID attached to the Aurora cluster"
+  value       = aws_security_group.aurora_sg.id
+}

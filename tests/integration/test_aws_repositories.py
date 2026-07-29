@@ -1,6 +1,5 @@
 import pytest
 from src.agent.integrations.aws_glue import GlueCatalogRepository
-from botocore.exceptions import ClientError
 
 def test_enrich_table_metadata_success(mock_glue_catalog, glue_client):
     """Verifies that the agent correctly patches Glue Catalog metadata without wiping existing tags."""

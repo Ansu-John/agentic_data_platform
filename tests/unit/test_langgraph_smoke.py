@@ -1,9 +1,8 @@
-import pytest
 from unittest.mock import patch
 from langchain_core.messages import AIMessage
 from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
 from src.agent.graph import build_governance_graph
-from src.agent.state import ValidationStatus, AgentState, DataProfilingMetrics
+from src.agent.state import ValidationStatus, DataProfilingMetrics
 
 def test_langgraph_state_machine_execution_flow():
     """
@@ -11,15 +10,6 @@ def test_langgraph_state_machine_execution_flow():
     ensuring standard nodes pass Pydantic structures correctly under local mock execution.
     """
     # 1. Prepare deterministic mock behaviors for the integration layer boundaries
-    mock_profile_data = {
-        "profiling_results": {
-            "total_record_count": 1000,
-            "null_primary_keys": 2,
-            "null_timestamps": 1,
-            "distinct_id_estimate": 998,
-            "calculated_null_ratio": 0.002 # Well within compliant ranges
-        }
-    }
 
     # Set up a structured fake LLM response string mimicking the exact production payload format
     simulated_llm_json = '{"status": "COMPLIANT", "reasoning": "Local semantic check passed."}'

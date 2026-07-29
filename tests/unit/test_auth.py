@@ -1,7 +1,7 @@
 import pytest
 import jwt
 import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from fastapi import HTTPException
 from src.api.utils.auth import CognitoJWTValidator
 

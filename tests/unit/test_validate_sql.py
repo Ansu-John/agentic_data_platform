@@ -1,4 +1,3 @@
-import pytest
 from src.api.agents.nlq_agent.nodes.validate_sql import validate_sql
 from src.api.agents.nlq_agent.state import NLQAgentState
 
