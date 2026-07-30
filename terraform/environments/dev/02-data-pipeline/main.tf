@@ -220,6 +220,11 @@ resource "aws_sfn_state_machine" "ingestion_orchestrator" {
   name     = "${var.project}-${var.environment}-ingestion-pipeline"
   role_arn = aws_iam_role.step_functions_role.arn
 
+  depends_on = [
+    aws_iam_role_policy.sfn_logging_policy,
+    aws_iam_role_policy.sfn_emr_policy
+  ]
+
   logging_configuration {
     log_destination        = "${aws_cloudwatch_log_group.ingestion_orchestrator_logs.arn}:*"
     include_execution_data = true
