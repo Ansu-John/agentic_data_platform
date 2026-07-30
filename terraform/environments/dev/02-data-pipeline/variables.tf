@@ -17,3 +17,9 @@ variable "image_tag" {
   description = "The Docker image tag deployed from GitHub Actions"
   type        = string
 }
+
+variable "source_code_path" {
+  description = "The absolute path to the Lambda zip file, injected by GitHub Actions"
+  type        = string
+  default     = "" # Prevents local runs from crashing if not provided
+}
