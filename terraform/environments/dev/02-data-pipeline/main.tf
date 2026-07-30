@@ -266,6 +266,9 @@ resource "aws_sfn_state_machine" "ingestion_orchestrator" {
             Next        = "NotifyIngestionFailure"
           }
         ]
+
+        ResultPath = "$.emr_result"
+
         Next = "IngestionSucceeded"
       }
       IngestionSucceeded = {
