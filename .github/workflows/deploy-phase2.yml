@@ -148,7 +148,7 @@ jobs:
         run: |
           echo "Packaging Lambda function for AWS..."
           # 1. Clean slate
-          rm -rf src/db/package init_db.zip
+          rm -rf src/db/package $GITHUB_WORKSPACE/terraform/environments/dev/02-data-pipeline/init_db.zip
           mkdir -p src/db/package
           
           # 2. Copy script & install dependencies
@@ -160,7 +160,7 @@ jobs:
           
           # 4. NATIVELY ZIP IT (Bypasses Terraform's archive_file bug)
           cd src/db/package
-          zip -r ../../../init_db.zip .
+          zip -r $GITHUB_WORKSPACE/terraform/environments/dev/02-data-pipeline/init_db.zip .
           
           echo "Native zip creation complete."
 

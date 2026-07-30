@@ -324,6 +324,6 @@ module "db_init_lambda" {
   database_name     = aws_rds_cluster.vector_db.database_name
   secret_arn        = aws_rds_cluster.vector_db.master_user_secret[0].secret_arn
 
-  source_code_path = abspath("${path.cwd}/../../../init_db.zip")
+  source_code_path = "${path.module}/init_db.zip"
   depends_on       = [aws_rds_cluster_instance.vector_db_instance]
 }
