@@ -5,12 +5,11 @@ on:
     branches: [ "main" ]
     paths:
       - 'terraform/environments/dev/02-data-pipeline/**'
-      - ".github/workflows/deploy-phase2.yml"
+      - '.github/workflows/deploy-phase2.yml'
+      - 'src/spark/**'
+      - 'src/db/**'
   pull_request:
     branches: [ "main" ]
-    paths:
-      - 'terraform/environments/dev/02-data-pipeline/**'
-      - ".github/workflows/deploy-phase2.yml"
 
 permissions:
   id-token: write
@@ -25,20 +24,21 @@ env:
   TF_VAR_image_tag: ${{ github.sha }}
 
 jobs:
-  # ===================================================================
-  # 1. QUALITY ASSURANCE & DRY RUN
-  # Runs on PRs and Pushes. Fails the build if syntax or state is broken.
-  # ===================================================================
-  validate-and-plan:
+  validate-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
       - name: Configure AWS Credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -51,43 +51,17 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform fmt -check -diff
 
+
       - name: Terraform Validate
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform validate
 
-  # ===================================================================
-  # 2. EXECUTION & ARTIFACT BUILD
-  # Runs ONLY when code is successfully merged into the 'main' branch.
-  # ===================================================================
-  apply:
-    needs: validate-and-plan
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    environment: dev
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
-          aws-region: ${{ env.AWS_REGION }}
-          
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-          
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        
-      - name: Terraform Init
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform init
-
+      # ===================================================================
+      # SPARK & EMR BUILD SEQUENCE
+      # ===================================================================
       - name: Provision ECR Repository First (Targeted Apply)
-        env:
-          TF_LOG: DEBUG
         working-directory: ${{ env.TF_WORKING_DIR }}
+        # Creates just the repos so Docker has a place to push!
         run: terraform apply -target="aws_ecr_repository.spark_repo" -target="aws_ecr_repository.dq_agent_repo" -auto-approve -input=false
           
       - name: Build, tag, and push Docker image to ECR
@@ -107,23 +81,18 @@ jobs:
           # 3. VERIFICATION CHECK: Check for the Python script
           docker run --rm --entrypoint /bin/bash $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -c "ls -la /home/hadoop/raw_to_iceberg.py"
           
-          # 4. Push the image
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          # 4. Push the image          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
       - name: Force Stop EMR App for Terraform Update
         env:
           APP_NAME: "${{ env.PROJECT }}-${{ env.ENVIRONMENT }}-spark-engine"
         run: |
-          # Find the app ID
           APP_ID=$(aws emr-serverless list-applications --query "applications[?name=='$APP_NAME'].id" --output text)
-          
           if [ "$APP_ID" != "None" ] && [ -n "$APP_ID" ]; then
             STATE=$(aws emr-serverless get-application --application-id $APP_ID --query "application.state" --output text)
             if [ "$STATE" == "STARTED" ] || [ "$STATE" == "STARTING" ]; then
               echo "Application is $STATE. Stopping it to allow Terraform updates..."
               aws emr-serverless stop-application --application-id $APP_ID
-              
-              # Wait for it to fully stop (checking every 10 seconds)
               while true; do
                 CURRENT_STATE=$(aws emr-serverless get-application --application-id $APP_ID --query "application.state" --output text)
                 if [ "$CURRENT_STATE" == "STOPPED" ]; then
@@ -138,16 +107,12 @@ jobs:
             fi
           fi
 
-      - name: Provision Remaining Infrastructure
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform apply -auto-approve
-
-        # Package the Lambda with Linux C-bindings for pg8000
+      # ===================================================================
+      # LAMBDA DATABASE INIT SEQUENCE
+      # ===================================================================
       - name: Package Database Init Lambda
         run: |
           echo "Packaging Lambda function natively in Linux..."
-          
-          # Work in the root directory ($GITHUB_WORKSPACE)
           rm -rf src/db/package $GITHUB_WORKSPACE/init_db.zip
           mkdir -p src/db/package
           
@@ -155,19 +120,20 @@ jobs:
           python3 -m pip install pg8000 -t src/db/package/
           chmod -R 755 src/db/package/
           
-          # Zip directly into the workspace root
           cd src/db/package
           zip -r $GITHUB_WORKSPACE/init_db.zip .
-          
-          echo "Native zip creation complete. Checking file exists:"
-          ls -la $GITHUB_WORKSPACE/init_db.zip
+          echo "Native zip creation complete."
 
-      # 2. Terraform Plan (Dynamically inject the exact path via TF_VAR)
+      # ===================================================================
+      # FINAL INFRASTRUCTURE DEPLOYMENT
+      # ===================================================================
       - name: Terraform Plan
         working-directory: ${{ env.TF_WORKING_DIR }}
+        # Safely injects the Lambda zip path
         run: terraform plan -var="source_code_path=${{ github.workspace }}/init_db.zip" -out=tfplan
 
-      # Terraform Apply (Dynamically inject the exact path via TF_VAR)
-      - name: Provision Remaining Infrastructure
+      - name: Provision Remaining Infrastructure (Apply)
+        if: github.event_name == 'push'
         working-directory: ${{ env.TF_WORKING_DIR }}
+        # Applies everything (including EMR updates and the Lambda execution)
         run: terraform apply -auto-approve tfplan
