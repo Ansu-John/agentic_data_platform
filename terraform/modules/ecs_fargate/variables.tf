@@ -43,3 +43,15 @@ variable "aws_region" {
   type        = string
   default     = "ap-south-1"
 }
+
+variable "bedrock_model_id_prefix" {
+  type        = string
+  default     = "anthropic.claude*"
+  description = "Foundation-model ID prefix this task role may invoke on Bedrock. Scopes bedrock:InvokeModel to a specific model family instead of Resource=\"*\"."
+}
+
+variable "athena_workgroup_name" {
+  type        = string
+  default     = "primary"
+  description = "Athena workgroup this task role is permitted to run queries against. Scopes athena:StartQueryExecution/etc. instead of Resource=\"*\"."
+}

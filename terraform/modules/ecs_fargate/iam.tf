@@ -73,10 +73,12 @@ resource "aws_iam_policy" "agent_permissions" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "BedrockLLM"
-        Effect   = "Allow"
-        Action   = ["bedrock:InvokeModel"]
-        Resource = "*" # Restrict to specific Claude ARNs in production
+        Sid    = "BedrockLLM"
+        Effect = "Allow"
+        Action = ["bedrock:InvokeModel"]
+        Resource = [
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/${var.bedrock_model_id_prefix}"
+        ]
       },
       {
         Sid      = "DynamoDBState"
@@ -107,16 +109,16 @@ resource "aws_iam_policy" "agent_permissions" {
         Resource = ["${var.silver_bucket_arn}/*"]
       },
       {
-        Sid    = "AthenaGlueGovernance"
+        Sid    = "AthenaGovernance"
         Effect = "Allow"
         Action = [
           "athena:StartQueryExecution",
           "athena:GetQueryExecution",
-          "athena:GetQueryResults",
-          "glue:GetTable",
-          "glue:UpdateTable"
+          "athena:GetQueryResults"
         ]
-        Resource = "*" # Scope down to specific catalog ARNs
+        Resource = [
+          "arn:aws:athena:${var.aws_region}:${data.aws_caller_identity.current.account_id}:workgroup/${var.athena_workgroup_name}"
+        ]
       },
       {
         Sid    = "KMSDecryptEncrypt"
@@ -135,6 +137,7 @@ resource "aws_iam_policy" "agent_permissions" {
           "glue:GetDatabases",
           "glue:GetTable",
           "glue:GetTables",
+          "glue:UpdateTable",
           "glue:GetPartition",
           "glue:GetPartitions",
           "glue:BatchGetPartition"

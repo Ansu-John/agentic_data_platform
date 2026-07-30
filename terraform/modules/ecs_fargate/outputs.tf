@@ -12,3 +12,13 @@ output "security_group_id" {
   value       = aws_security_group.ecs_sg.id
   description = "Security firewall boundaries assigned to container runtimes."
 }
+
+output "task_role_arn" {
+  value       = aws_iam_role.task_role.arn
+  description = "ARN of the internally-created ECS task role. Needed by callers (e.g. EventBridge invoke roles) to scope iam:PassRole to this specific role instead of Resource=\"*\"."
+}
+
+output "execution_role_arn" {
+  value       = aws_iam_role.execution_role.arn
+  description = "ARN of the ECS task execution role, for the same PassRole-scoping purpose."
+}

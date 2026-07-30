@@ -58,4 +58,64 @@ resource "aws_vpc_endpoint" "dynamodb" {
   }
 }
 
+# ---------------------------------------------------------
+# VPC Interface Endpoints
+# ---------------------------------------------------------
+# Glue, ECR, STS, CloudWatch Logs, and Bedrock Runtime calls previously had no
+# private path and traversed the NAT Gateway to the public AWS API endpoints.
+# These Interface Endpoints (AWS PrivateLink) keep that traffic on AWS's
+# private network instead, matching the platform's private-networking
+# requirement. (S3 and DynamoDB use free Gateway Endpoints above, since
+# PrivateLink doesn't support Gateway-type endpoints for those services.)
+resource "aws_security_group" "vpc_endpoints" {
+  name        = "${var.vpc_name}-vpce-sg"
+  description = "Allows HTTPS from within the VPC to Interface VPC Endpoints"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description = "HTTPS from the VPC CIDR"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [var.cidr_block]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.vpc_name}-vpce-sg"
+  }
+}
+
+locals {
+  interface_endpoint_services = {
+    glue           = "glue"
+    ecr_api        = "ecr.api"
+    ecr_dkr        = "ecr.dkr"
+    sts            = "sts"
+    logs           = "logs"
+    bedrock_runtime = "bedrock-runtime"
+  }
+}
+
+resource "aws_vpc_endpoint" "interface_endpoints" {
+  for_each = local.interface_endpoint_services
+
+  vpc_id              = module.vpc.vpc_id
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.${each.value}"
+  vpc_endpoint_type    = "Interface"
+  subnet_ids           = module.vpc.private_subnets
+  security_group_ids   = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled  = true
+
+  tags = {
+    Name = "${var.vpc_name}-${each.key}-endpoint"
+  }
+}
+
 data "aws_region" "current" {}

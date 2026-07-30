@@ -122,19 +122,31 @@ resource "aws_iam_role_policy" "emr_execution_policy" {
           "glue:CreateTable",
           "glue:UpdateTable",
           "glue:GetPartitions",
-        "glue:BatchCreatePartition"]
+          "glue:BatchCreatePartition"
+        ]
+        Resource = [
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:catalog",
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:database/${var.project}_${var.environment}_ai_catalog",
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${var.project}_${var.environment}_ai_catalog/*"
+        ]
+      },
+      {
+        # ecr:GetAuthorizationToken does not support resource-level permissions -- it is
+        # an account/region-wide token vend, not scoped to a repository -- so Resource="*"
+        # is an AWS-imposed requirement here, not an oversight.
+        Effect   = "Allow"
+        Action   = ["ecr:GetAuthorizationToken"]
         Resource = ["*"]
       },
       {
         Effect = "Allow"
         Action = [
-          "ecr:GetAuthorizationToken",
           "ecr:BatchCheckLayerAvailability",
           "ecr:GetDownloadUrlForLayer",
           "ecr:BatchGetImage",
           "ecr:DescribeImages"
         ]
-        Resource = ["*"]
+        Resource = [aws_ecr_repository.spark_repo.arn]
       },
       {
         Sid = "KMSAccess",
@@ -175,11 +187,47 @@ resource "aws_iam_role_policy" "sfn_emr_policy" {
   })
 }
 
+resource "aws_cloudwatch_log_group" "ingestion_orchestrator_logs" {
+  name              = "/aws/states/${var.project}-${var.environment}-ingestion-pipeline"
+  retention_in_days = 30
+}
+
+resource "aws_iam_role_policy" "sfn_logging_policy" {
+  name = "${var.project}-${var.environment}-sfn-logging-policy"
+  role = aws_iam_role.step_functions_role.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogDelivery",
+          "logs:GetLogDelivery",
+          "logs:UpdateLogDelivery",
+          "logs:DeleteLogDelivery",
+          "logs:ListLogDeliveries",
+          "logs:PutResourcePolicy",
+          "logs:DescribeResourcePolicies",
+          "logs:DescribeLogGroups"
+        ]
+        Resource = ["*"] # These log-delivery APIs are account-wide and do not support resource-level scoping.
+      }
+    ]
+  })
+}
+
 resource "aws_sfn_state_machine" "ingestion_orchestrator" {
   name     = "${var.project}-${var.environment}-ingestion-pipeline"
   role_arn = aws_iam_role.step_functions_role.arn
+
+  logging_configuration {
+    log_destination        = "${aws_cloudwatch_log_group.ingestion_orchestrator_logs.arn}:*"
+    include_execution_data = true
+    level                   = "ALL"
+  }
+
   definition = jsonencode({
-    Comment = "Orchestrates S3 Bronze to Silver Iceberg Ingestion using Dockerized Spark"
+    Comment = "Orchestrates S3 Bronze to Silver Iceberg Ingestion using Dockerized Spark. On success, this execution's SUCCEEDED status is what triggers the Phase 3 DQ agent hand-off via EventBridge (see modules/eventbridge_ecs_trigger)."
     StartAt = "RunSparkIngestion"
     States = {
       RunSparkIngestion = {
@@ -196,7 +244,46 @@ resource "aws_sfn_state_machine" "ingestion_orchestrator" {
             }
           }
         }
+        Retry = [
+          {
+            # Transient EMR Serverless start/capacity errors -- retry with backoff
+            # before giving up. Does NOT retry on deterministic job failures.
+            ErrorEquals     = ["States.Timeout", "States.TaskFailed"]
+            IntervalSeconds = 30
+            MaxAttempts     = 2
+            BackoffRate     = 2.0
+          }
+        ]
+        Catch = [
+          {
+            ErrorEquals = ["States.ALL"]
+            ResultPath  = "$.ingestionError"
+            Next        = "NotifyIngestionFailure"
+          }
+        ]
+        Next = "IngestionSucceeded"
+      }
+      IngestionSucceeded = {
+        # Terminal success marker. Reaching SUCCEEDED here (and only here) is the
+        # explicit DQ-gate boundary: the EventBridge rule in
+        # modules/eventbridge_ecs_trigger listens specifically for this state
+        # machine's SUCCEEDED status to asynchronously invoke the Phase 3 AI DQ
+        # agent on ECS Fargate. A FAILED execution (via NotifyIngestionFailure
+        # below) intentionally does NOT match that rule, so bad ingestion runs
+        # never reach the governance agent.
+        Type = "Pass"
+        Parameters = {
+          "handoff_to"    = "phase3-ai-dq-agent"
+          "handoff_via"   = "eventbridge-on-execution-succeeded"
+          "source_path.$" = "$.source_path"
+          "table_name.$"  = "$.table_name"
+        }
         End = true
+      }
+      NotifyIngestionFailure = {
+        Type   = "Fail"
+        Error  = "IngestionPipelineFailed"
+        Cause  = "The Spark/Iceberg ingestion job failed after retries. See the execution's CloudWatch Logs and $.ingestionError for details. This execution intentionally does not reach the DQ-gate handoff."
       }
     }
   })

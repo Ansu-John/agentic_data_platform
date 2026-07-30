@@ -25,16 +25,38 @@ class IcebergIngestionPipeline:
     """
 
     def __init__(self, source_path: str, db_name: str, table_name: str, silver_bucket: str,
-                 merge_key: str):
+                 merge_key: str, catalog_name: str = "glue_catalog",
+                 spark_session: SparkSession | None = None):
+        """
+        Args:
+            source_path: S3 URI of the raw source file(s) to ingest.
+            db_name: Glue Catalog database name.
+            table_name: Target Iceberg table name.
+            silver_bucket: Silver-zone S3 bucket name.
+            merge_key: Primary key column used for the idempotent MERGE INTO / UPSERT.
+            catalog_name: Spark SQL catalog name to write through. Defaults to the
+                production AWS Glue-backed catalog; overridable so tests can point
+                at a local, non-AWS Iceberg catalog instead.
+            spark_session: An existing SparkSession to reuse instead of creating a
+                new one. When provided, this pipeline does not own the session's
+                lifecycle and will not stop it in `run()`. Passing an externally
+                managed session avoids repeated cold-start session creation when
+                driving multiple ingestion jobs from the same EMR Serverless
+                driver, and lets tests inject a pre-configured local session.
+        """
         self.source_path = source_path
         self.db_name = db_name
         self.table_name = table_name
         self.silver_bucket = silver_bucket
         self.merge_key = merge_key
-        self.iceberg_table_identifier = f"glue_catalog.{self.db_name}.{self.table_name}"
+        self.catalog_name = catalog_name
+        self.iceberg_table_identifier = f"{self.catalog_name}.{self.db_name}.{self.table_name}"
         self.s3_location = f"s3://{self.silver_bucket}/{self.db_name}/{self.table_name}/"
 
-        self.spark = self._initialize_spark_session()
+        self._owns_spark_session = spark_session is None
+        self.spark = (
+            spark_session if spark_session is not None else self._initialize_spark_session()
+        )
 
     def _initialize_spark_session(self) -> SparkSession:
         """Initializes a SparkSession optimized for Apache Iceberg and AWS Glue."""
@@ -44,11 +66,11 @@ class IcebergIngestionPipeline:
                 .appName(f"Ingest-{self.table_name}") \
                 .config("spark.sql.extensions",
                         "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
-                .config("spark.sql.catalog.glue_catalog",
+                .config(f"spark.sql.catalog.{self.catalog_name}",
                         "org.apache.iceberg.spark.SparkCatalog") \
-                .config("spark.sql.catalog.glue_catalog.catalog-impl",
+                .config(f"spark.sql.catalog.{self.catalog_name}.catalog-impl",
                         "org.apache.iceberg.aws.glue.GlueCatalog") \
-                .config("spark.sql.catalog.glue_catalog.io-impl",
+                .config(f"spark.sql.catalog.{self.catalog_name}.io-impl",
                         "org.apache.iceberg.aws.s3.S3FileIO") \
                 .config("spark.sql.iceberg.handle-timestamp-without-timezone",
                         "true") \
@@ -140,8 +162,12 @@ class IcebergIngestionPipeline:
             self.write_to_iceberg(df_transformed)
 
         finally:
-            logger.info("Stopping SparkSession...")
-            self.spark.stop()
+            # Only tear down the SparkSession if this pipeline instance created it.
+            # An externally supplied session (e.g. shared across jobs, or a test
+            # fixture's session) remains the caller's responsibility to stop.
+            if self._owns_spark_session:
+                logger.info("Stopping SparkSession...")
+                self.spark.stop()
 
 
 def parse_arguments()-> argparse.Namespace:

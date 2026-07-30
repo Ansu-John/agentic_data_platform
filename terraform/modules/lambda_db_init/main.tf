@@ -1,5 +1,8 @@
 
 
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
 resource "aws_iam_role" "lambda_role" {
   name = "dataplatform-dev-db-init-role"
   assume_role_policy = jsonencode({
@@ -12,8 +15,23 @@ resource "aws_iam_role_policy" "lambda_policy" {
   policy = jsonencode({
     Version = "2012-10-17", Statement = [
       { Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = var.secret_arn },
-      { Effect = "Allow", Action = ["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DeleteNetworkInterface"], Resource = "*" },
-      { Effect = "Allow", Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"], Resource = "*" }
+      {
+        # NOTE: ec2:CreateNetworkInterface/DescribeNetworkInterfaces/DeleteNetworkInterface
+        # do not support resource-level permissions -- the ENI does not exist yet at the
+        # point CreateNetworkInterface is called, so IAM cannot scope it to a specific ARN.
+        # This is the same Resource="*" AWS itself uses in the managed
+        # AWSLambdaVPCAccessExecutionRole policy; it is not a scoping oversight.
+        Effect   = "Allow"
+        Action   = ["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DeleteNetworkInterface"]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = [
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/dataplatform-dev-db-init:*"
+        ]
+      }
     ]
   })
 }
