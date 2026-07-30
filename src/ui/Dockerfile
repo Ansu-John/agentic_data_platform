@@ -4,11 +4,12 @@ FROM python:3.12-slim as UI_builder
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-WORKDIR /workspace_build
+WORKDIR /app
+
 COPY src/pyproject.toml ./
 
-RUN python -m venv /workspace_build/.venv
-RUN /workspace_build/.venv/bin/pip install --no-cache-dir .
+RUN python -m venv /app/.venv
+RUN /app/.venv/bin/pip install --no-cache-dir .
 
 # -------------------------------------------------------------
 FROM python:3.12-slim as ui_runtime
@@ -16,7 +17,7 @@ WORKDIR /app
 
 ENV PYTHONPATH="/app"
 
-COPY --from=UI_builder /workspace_build/.venv /app/.venv
+COPY --from=UI_builder /app/.venv /app/.venv
 COPY src/ /app/src/
 
 RUN useradd -u 10002 ui_user && chown -R ui_user:ui_user /app
