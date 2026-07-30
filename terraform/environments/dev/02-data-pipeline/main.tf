@@ -287,7 +287,7 @@ resource "aws_rds_cluster" "vector_db" {
   master_username             = "postgres_admin"
   manage_master_user_password = true # Auto-generates password to AWS Secrets Manager
 
-  enable_http_endpoint        = true
+  enable_http_endpoint = true
 
   vpc_security_group_ids = [aws_security_group.aurora_sg.id]
   db_subnet_group_name   = aws_db_subnet_group.default.name
