@@ -9,8 +9,10 @@ WORKDIR /workspace_build
 
 # Use local package resolution patterns from the repository roots
 COPY src/pyproject.toml ./
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --target=/workspace_build/dependencies .
+
+RUN python -m venv /workspace_build/.venv
+RUN /workspace_build/.venv/bin/pip install --no-cache-dir --upgrade pip && \
+    /workspace_build/.venv/bin/pip install --no-cache-dir .
 
 # -------------------------------------------------------------
 FROM python:3.12-slim as api_runtime
@@ -18,11 +20,13 @@ WORKDIR /app
 
 ENV PYTHONPATH="/app"
 
-COPY --from=component_builder /workspace_build/dependencies /usr/local/lib/python3.12/site-packages
+COPY --from=component_builder /workspace_build/.venv /app/.venv
 COPY src/ /app/src/
 
 RUN useradd -u 10001 api_user && chown -R api_user:api_user /app
 USER api_user
+
+ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 8000
 ENTRYPOINT ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
