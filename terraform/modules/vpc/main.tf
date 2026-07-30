@@ -94,11 +94,11 @@ resource "aws_security_group" "vpc_endpoints" {
 
 locals {
   interface_endpoint_services = {
-    glue           = "glue"
-    ecr_api        = "ecr.api"
-    ecr_dkr        = "ecr.dkr"
-    sts            = "sts"
-    logs           = "logs"
+    glue            = "glue"
+    ecr_api         = "ecr.api"
+    ecr_dkr         = "ecr.dkr"
+    sts             = "sts"
+    logs            = "logs"
     bedrock_runtime = "bedrock-runtime"
   }
 }
@@ -108,10 +108,10 @@ resource "aws_vpc_endpoint" "interface_endpoints" {
 
   vpc_id              = module.vpc.vpc_id
   service_name        = "com.amazonaws.${data.aws_region.current.name}.${each.value}"
-  vpc_endpoint_type    = "Interface"
-  subnet_ids           = module.vpc.private_subnets
-  security_group_ids   = [aws_security_group.vpc_endpoints.id]
-  private_dns_enabled  = true
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = module.vpc.private_subnets
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
 
   tags = {
     Name = "${var.vpc_name}-${each.key}-endpoint"

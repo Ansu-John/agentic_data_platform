@@ -223,7 +223,7 @@ resource "aws_sfn_state_machine" "ingestion_orchestrator" {
   logging_configuration {
     log_destination        = "${aws_cloudwatch_log_group.ingestion_orchestrator_logs.arn}:*"
     include_execution_data = true
-    level                   = "ALL"
+    level                  = "ALL"
   }
 
   definition = jsonencode({
@@ -281,9 +281,9 @@ resource "aws_sfn_state_machine" "ingestion_orchestrator" {
         End = true
       }
       NotifyIngestionFailure = {
-        Type   = "Fail"
-        Error  = "IngestionPipelineFailed"
-        Cause  = "The Spark/Iceberg ingestion job failed after retries. See the execution's CloudWatch Logs and $.ingestionError for details. This execution intentionally does not reach the DQ-gate handoff."
+        Type  = "Fail"
+        Error = "IngestionPipelineFailed"
+        Cause = "The Spark/Iceberg ingestion job failed after retries. See the execution's CloudWatch Logs and $.ingestionError for details. This execution intentionally does not reach the DQ-gate handoff."
       }
     }
   })

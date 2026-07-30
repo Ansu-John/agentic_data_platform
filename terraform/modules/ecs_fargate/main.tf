@@ -20,9 +20,9 @@ resource "aws_ecs_task_definition" "service_task" {
   cpu                      = "1024"
   memory                   = "2048"
   execution_role_arn       = aws_iam_role.execution_role.arn
-  
+
   # Conditional: Use external role if provided, else use the internal one created in iam.tf
-task_role_arn = var.task_role_arn != null ? var.task_role_arn : aws_iam_role.task_role.arn
+  task_role_arn = var.task_role_arn != null ? var.task_role_arn : aws_iam_role.task_role.arn
 
   container_definitions = jsonencode([{
     name      = var.service_name
@@ -84,7 +84,7 @@ resource "aws_security_group" "ecs_sg" {
     from_port   = var.container_port != null ? var.container_port : 0
     to_port     = var.container_port != null ? var.container_port : 0
     protocol    = var.container_port != null ? "tcp" : "-1"
-    cidr_blocks = ["0.0.0.0/0"] 
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {

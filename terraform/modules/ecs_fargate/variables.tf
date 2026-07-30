@@ -40,8 +40,8 @@ variable "kms_key_arn" {
 }
 
 variable "aws_region" {
-  type        = string
-  default     = "ap-south-1"
+  type    = string
+  default = "ap-south-1"
 }
 
 variable "bedrock_model_id_prefix" {
