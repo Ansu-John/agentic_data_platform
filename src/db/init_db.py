@@ -5,8 +5,8 @@ import time
 from typing import Any, cast
 
 import boto3
-import pg8000.native.Connection  # type: ignore
 from botocore.exceptions import ClientError
+from pg8000.native import Connection  # type: ignore
 
 # Configure structured enterprise logging
 logger = logging.getLogger()
@@ -29,14 +29,14 @@ def get_db_credentials(secret_arn: str) -> dict[str, str]:
         raise e
 
 def get_db_connection(db_host: str, db_name: str,
-                      secret_dict: dict[str, str]) -> pg8000.native.Connection:
+                      secret_dict: dict[str, str]) -> Connection:
     """Attempts to connect to Aurora PostgreSQL with exponential backoff."""
     attempt = 0
     while attempt < MAX_RETRIES:
         try:
             logger.info(f"Attempting database connection to {db_host} "
                         f"(Attempt {attempt + 1}/{MAX_RETRIES})...")
-            conn = pg8000.native.Connection(
+            conn = Connection(
                 host=db_host,
                 database=db_name,
                 user=secret_dict['username'],
@@ -79,11 +79,10 @@ def initialize_schema(conn: Any) -> None:
         """
     ]
 
-    with conn.cursor() as cursor:
-        for statement in ddl_statements:
-            logger.info(f"Executing DDL: {statement.strip().splitlines()[0]}...")
-            cursor.execute(statement)
-        logger.info("All DDL statements executed successfully.")
+    for statement in ddl_statements:
+        logger.info(f"Executing DDL: {statement.strip().splitlines()[0]}...")
+        conn.run(statement)
+    logger.info("All DDL statements executed successfully.")
 
 def lambda_handler(_event: dict[str, Any], _context: Any) -> dict[str, Any]:
     """AWS Lambda entry point."""

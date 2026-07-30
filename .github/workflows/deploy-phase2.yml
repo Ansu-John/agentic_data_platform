@@ -81,7 +81,8 @@ jobs:
           # 3. VERIFICATION CHECK: Check for the Python script
           docker run --rm --entrypoint /bin/bash $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -c "ls -la /home/hadoop/raw_to_iceberg.py"
           
-          # 4. Push the image          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          # 4. Push the image          
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
       - name: Force Stop EMR App for Terraform Update
         env:
