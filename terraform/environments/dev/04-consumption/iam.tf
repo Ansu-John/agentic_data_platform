@@ -28,7 +28,7 @@ resource "aws_iam_policy" "nlq_execution_policy" {
         ]
         Resource = "arn:aws:bedrock:${var.aws_region}::foundation-model/*"
       },
-      # Athena Query Execution Permissions
+      # Athena Query Execution Permissions -- scoped to this platform's own workgroup
       {
         Effect = "Allow"
         Action = [
@@ -37,7 +37,9 @@ resource "aws_iam_policy" "nlq_execution_policy" {
           "athena:GetQueryExecution",
           "athena:GetQueryResults"
         ]
-        Resource = "*"
+        Resource = [
+          "arn:aws:athena:${var.aws_region}:${data.aws_caller_identity.current.account_id}:workgroup/${module.athena_workgroup.workgroup_name}"
+        ]
       },
       # Glue catalog read/write for dbt Iceberg materializations
       {
