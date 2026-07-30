@@ -165,13 +165,9 @@ jobs:
       # 2. Terraform Plan (Dynamically inject the exact path via TF_VAR)
       - name: Terraform Plan
         working-directory: ${{ env.TF_WORKING_DIR }}
-        env:
-          TF_VAR_source_code_path: ${{ github.workspace }}/init_db.zip
-        run: terraform plan -out=tfplan
+        run: terraform plan -var="source_code_path=${{ github.workspace }}/init_db.zip" -out=tfplan
 
-      # 3. Terraform Apply (Dynamically inject the exact path via TF_VAR)
+      # Terraform Apply (Dynamically inject the exact path via TF_VAR)
       - name: Provision Remaining Infrastructure
         working-directory: ${{ env.TF_WORKING_DIR }}
-        env:
-          TF_VAR_source_code_path: ${{ github.workspace }}/init_db.zip
         run: terraform apply -auto-approve tfplan
