@@ -98,6 +98,23 @@ resource "aws_iam_policy" "nlq_execution_policy" {
           "kms:GenerateDataKey"
         ]
         Resource = [data.terraform_remote_state.foundation.outputs.kms_key_arn]
+      },
+      # LangGraph checkpoint persistence (DynamoDBSaver) -- this is the role the
+      # NLQ API task actually runs as (task_role_arn = aws_iam_role.nlq_task_role.arn
+      # is passed explicitly to the ecs_fargate module below), so the checkpoint
+      # permissions must live here, not on the ecs_fargate module's own internal
+      # (unused, in this call) task role. Scoped to exactly what
+      # langgraph-checkpoint-aws's DynamoDBSaver calls against its PK/SK table.
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:Query",
+          "dynamodb:BatchGetItem",
+          "dynamodb:BatchWriteItem"
+        ]
+        Resource = [data.aws_dynamodb_table.checkpoints.arn]
       }
     ]
   })
