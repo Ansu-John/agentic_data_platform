@@ -3,7 +3,7 @@
 
 terraform {
   backend "s3" {
-    bucket         = "dataplatform-dev-tfstate" # Pre-create this manually
+    bucket         = "dataplatform-dev-terraform-state-bucket" # Pre-create this manually
     key            = "dev/01-foundation/terraform.tfstate"
     region         = "ap-south-1"
     dynamodb_table = "terraform-state-lock" # Pre-create this manually
