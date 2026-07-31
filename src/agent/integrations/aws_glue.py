@@ -1,5 +1,6 @@
 
 from datetime import datetime
+from functools import cache
 from typing import Any
 
 import boto3
@@ -9,6 +10,20 @@ from src.agent.core.exceptions import GlueCatalogUpdateError
 from src.agent.core.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+@cache
+def _get_glue_client(region_name: str) -> Any:
+    """
+    Returns a cached boto3 Glue client per region.
+
+    GlueCatalogRepository is instantiated fresh on every LangGraph node
+    invocation (see src/agent/nodes.py's quarantine_data_node and
+    enhance_catalog_node), so without caching, every governance decision paid
+    for a brand new client/connection pool. See _get_athena_client in
+    aws_athena.py for the same rationale.
+    """
+    return boto3.client("glue", region_name=region_name)
 
 # The strict whitelist of keys allowed in TableInput for update_table/create_table
 ALLOWED_TABLE_INPUT_KEYS = {
@@ -32,7 +47,7 @@ class GlueCatalogRepository:
     """Handles operational mutations against Data Catalog schemas."""
 
     def __init__(self, region_name: str):
-        self.client = boto3.client("glue", region_name=region_name)
+        self.client = _get_glue_client(region_name)
 
     def enrich_table_metadata(self, database: str, table_name: str, metrics: dict[str, Any],
                               status: str) -> None:

@@ -1,4 +1,5 @@
 import time
+from functools import cache
 from typing import Any
 
 import boto3
@@ -10,12 +11,30 @@ from src.agent.core.logger import get_logger
 
 logger = get_logger(__name__)
 
+
+@cache
+def _get_athena_client(region_name: str) -> Any:
+    """
+    Returns a cached boto3 Athena client per region.
+
+    AthenaRepository is instantiated fresh on every LangGraph node invocation
+    (see src/agent/nodes.py::profile_data_node), which previously meant a brand
+    new boto3 client -- and its own TLS/connection pool and credential
+    resolution -- was built on every single node execution. Caching the client
+    itself at module scope (keyed by region) means repeated instantiations
+    reuse the same underlying connection pool, matching the cold-start-reuse
+    pattern already used correctly elsewhere in this platform (e.g. the
+    Lambda's module-level stepfunctions client).
+    """
+    return boto3.client("athena", region_name=region_name)
+
+
 class AthenaRepository:
     """Manages high-throughput analytical query compilation against Iceberg tables."""
 
     def __init__(self, region_name: str, database: str, output_bucket: str,
                  workgroup: str = "primary"):
-        self.client = boto3.client("athena", region_name=region_name)
+        self.client = _get_athena_client(region_name)
         self.database = database
         self.workgroup = workgroup
 

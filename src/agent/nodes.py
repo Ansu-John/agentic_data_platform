@@ -134,12 +134,19 @@ def validate_dq_node(state: AgentState) -> dict[str, Any]:
             "failure_reasoning": llm_reasoning if llm_status != "COMPLIANT" else "None"
         }
     except Exception as e:
-        logger.warn("llm_evaluation_failed_falling_back_to_conservative", error=str(e))
-        # Fall back gracefully to the deterministic checks if the model fails or is throttled
+        # Fail CLOSED, not open: an unavailable/throttled/malformed LLM response
+        # must never be interpreted as a compliance pass. Promoting data to
+        # COMPLIANT specifically when the evaluator can't run would defeat this
+        # governance gate at exactly the moment (Bedrock throttling under load)
+        # it's most likely to fail -- so route to quarantine instead and let a
+        # human/on-call re-run validation once the LLM is healthy again.
+        logger.error("llm_evaluation_failed_failing_closed_to_non_compliant", error=str(e))
         return {
-            "validation_status": "COMPLIANT",
-            "failure_reasoning": "Fallback mode: Deterministic bounds met,"
-                            " LLM evaluation unavailable."
+            "validation_status": "NON_COMPLIANT",
+            "failure_reasoning": f"Fail-closed: LLM evaluation unavailable or errored "
+                                f"({type(e).__name__}: {e}). Deterministic hard-threshold "
+                                f"checks passed, but semantic evaluation could not run, so "
+                                f"this dataset is quarantined pending manual review."
         }
 
 def quarantine_data_node(state: AgentState) -> dict[str, Any]:

@@ -1,3 +1,4 @@
+import uuid
 from typing import Any
 
 import structlog
@@ -26,7 +27,23 @@ async def process_natural_language_query(
     _current_user: dict[str, Any] = Depends(get_current_user)
 )->QueryOutboundResponse:
 
-    logger.info("received_inbound_nlq_request", client_query=payload.query)
+    # thread_id addresses this request's checkpoint chain in DynamoDB. Each
+    # request gets its own thread today (no multi-turn conversation memory
+    # yet -- QueryInboundRequest carries no conversation/session id); this
+    # still gives per-request resumability and an auditable execution trail.
+    #
+    # Prefixed with "nlq-agent:" so this app's threads stay isolated from the
+    # DQ agent's on the shared DynamoDB table. This prefix is what actually
+    # provides that isolation -- NOT config["configurable"]["checkpoint_ns"],
+    # which an earlier version of this code set to "nlq-agent". Testing
+    # showed langgraph-checkpoint-aws doesn't honor a caller-supplied
+    # checkpoint_ns for a top-level invoke (LangGraph's Pregel runtime treats
+    # it as an internal subgraph-nesting field and recomputes it per task, so
+    # it's always "" at the root); see src/agent/main.py for the full
+    # writeup of the repro. thread_id is the identifier LangGraph actually
+    # respects, so the prefix lives there instead.
+    thread_id = f"nlq-agent:{uuid.uuid4()}"
+    logger.info("received_inbound_nlq_request", client_query=payload.query, thread_id=thread_id)
 
     initial_state: NLQAgentState= {
         "user_query": payload.query,
@@ -44,7 +61,10 @@ async def process_natural_language_query(
 
     try:
         # Run synchronous step graph state evaluation loop
-        execution_output = nlq_agent_graph.invoke(initial_state)
+        execution_output = nlq_agent_graph.invoke(
+            initial_state,
+            config={"configurable": {"thread_id": thread_id}},
+        )
 
         success_flag = (
             execution_output.get("error_trace") is None and

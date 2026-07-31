@@ -81,9 +81,18 @@ resource "aws_iam_policy" "agent_permissions" {
         ]
       },
       {
-        Sid      = "DynamoDBState"
-        Effect   = "Allow"
-        Action   = ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"]
+        # Scoped to exactly what langgraph-checkpoint-aws's DynamoDBSaver calls
+        # (GetItem/PutItem/Query/BatchGetItem/BatchWriteItem) against its
+        # single-table PK/SK design -- see terraform/modules/dynamodb_state.
+        Sid    = "DynamoDBState"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:Query",
+          "dynamodb:BatchGetItem",
+          "dynamodb:BatchWriteItem"
+        ]
         Resource = var.dynamodb_table_arn
       },
       {

@@ -45,6 +45,7 @@ dependencies = [
     { name = "langchain-aws" },
     { name = "langchain-core" },
     { name = "langgraph" },
+    { name = "langgraph-checkpoint-aws" },
     { name = "pandas" },
     { name = "pg8000" },
     { name = "pyarrow" },
@@ -81,6 +82,7 @@ requires-dist = [
     { name = "langchain-aws", specifier = ">=0.1.0" },
     { name = "langchain-core", specifier = ">=0.1.0" },
     { name = "langgraph", specifier = ">=0.0.30" },
+    { name = "langgraph-checkpoint-aws", specifier = ">=1.2.0" },
     { name = "pandas", specifier = ">=2.2.0" },
     { name = "pg8000", specifier = ">=1.31.5" },
     { name = "pyarrow", specifier = ">=15.0.0" },
@@ -1051,6 +1053,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/83/47/886af6f886f0bff2273164a45f008694e48a96ff3cd25ff0228f2aa9480e/langgraph_checkpoint-4.1.1.tar.gz", hash = "sha256:6c2bdb530c91f91d7d9c1bd100925d0fc4f498d418c17f3587d1526279482a25", size = 184020, upload-time = "2026-05-22T16:57:38.503Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bd/b4/71425e3e38be92611300b9cc5e46a5bf98ab23f5ea8a75b73d02a2f1413c/langgraph_checkpoint-4.1.1-py3-none-any.whl", hash = "sha256:25d29144b082827218e7bc3f1e9b0566a4bb007895cd6cc26f66a8428739f56e", size = 56212, upload-time = "2026-05-22T16:57:37.203Z" },
+]
+
+[[package]]
+name = "langgraph-checkpoint-aws"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "boto3" },
+    { name = "langgraph" },
+    { name = "langgraph-checkpoint" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/21/78/272c3fa062eb0fc6f2b23fe49100b6e419a84a807ed62412a578a8f3f60a/langgraph_checkpoint_aws-1.2.0.tar.gz", hash = "sha256:ba9070335eee056452d6a1608ae45ceca9c7b95f83901eafaa43e26c56c9abe3", size = 305525, upload-time = "2026-07-02T20:41:10.361Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/37/8c/a3f43da031c4eeb497a4e83d9d5a243e11ff544e17a56017cdbcae1c4c23/langgraph_checkpoint_aws-1.2.0-py3-none-any.whl", hash = "sha256:a8868d908546832cbfafc460e66b0528606692fb6df6838aa60641c0a17ce269", size = 168149, upload-time = "2026-07-02T20:41:09.082Z" },
 ]
 
 [[package]]

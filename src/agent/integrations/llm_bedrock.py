@@ -1,3 +1,6 @@
+from functools import cache
+from typing import Any
+
 import boto3
 from botocore.config import Config
 from langchain_aws import ChatBedrockConverse
@@ -7,6 +10,28 @@ from src.agent.core.exceptions import AgentDomainError
 from src.agent.core.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+@cache
+def _get_bedrock_runtime_client(region_name: str) -> Any:
+    """
+    Returns a cached boto3 bedrock-runtime client per region.
+
+    get_evaluator_llm() is called fresh on every validate_dq_node execution
+    (see src/agent/nodes.py), so without caching, every DQ validation paid for
+    a brand new client/connection pool. See _get_athena_client in
+    aws_athena.py for the same rationale. The retry Config only depends on
+    region, so it's safe to bake into this cached factory.
+    """
+    retry_config = Config(
+        region_name=region_name,
+        retries={
+            "max_attempts": 5,
+            "mode": "adaptive"
+        }
+    )
+    return boto3.client("bedrock-runtime", config=retry_config)
+
 
 class BedrockEngineFactory:
     """
@@ -23,18 +48,9 @@ class BedrockEngineFactory:
         logger.info("initializing_bedrock_engine", model_id=settings.BEDROCK_MODEL_ID)
 
         try:
-            # Configure custom boto3 client with aggressive exponential backoff for LLM rate limits
-            retry_config = Config(
-                region_name=settings.AWS_REGION,
-                retries={
-                    "max_attempts": 5,
-                    "mode": "adaptive"
-                }
-            )
-            bedrock_client = boto3.client("bedrock-runtime", config=retry_config)
+            bedrock_client = _get_bedrock_runtime_client(settings.AWS_REGION)
 
-
-            # Instantiate the LangChain interface using the hardened client
+            # Instantiate the LangChain interface using the hardened, shared client
             llm = ChatBedrockConverse(
                 client=bedrock_client,
                 model=settings.BEDROCK_MODEL_ID,

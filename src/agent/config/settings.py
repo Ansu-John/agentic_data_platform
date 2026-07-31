@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     CATALOG_DATABASE: str = Field(default="dataplatform_dev_ai_catalog")
     ATHENA_WORKGROUP: str = Field(default="primary")
 
+    # LangGraph state persistence (shared table -- see terraform/modules/dynamodb_state)
+    DYNAMODB_CHECKPOINT_TABLE_NAME: str = Field(default="langgraph-checkpoints-dev")
+    CHECKPOINT_TTL_SECONDS: int = Field(default=2592000)  # 30 days
+
     # AI/LLM Orchestration Parameters
     BEDROCK_MODEL_ID: str = Field(default="anthropic.claude-3-sonnet-20240229-v1:0")
     DQ_MAX_NULL_THRESHOLD: float = Field(default=0.05)

@@ -52,9 +52,31 @@ def handler(event: dict[str, Any], _context: Any = None) -> dict[str, Any]:
             "logs": [{"handler": "bootstrap", "status": "INITIALIZED"}]
         }
 
-        # Invoke the active graph
+        # Invoke the active graph. thread_id is prefixed with this app's name
+        # ("ai-dq-agent:") and the Step Function execution ARN, so checkpoints
+        # remain addressable from the execution ARN found in this execution's
+        # logs, a retried/re-driven event resumes from where a prior attempt
+        # left off instead of silently starting over, AND this app's threads
+        # stay isolated from the NLQ agent's on the shared DynamoDB table.
+        #
+        # NOTE: an earlier version of this code tried to achieve that same
+        # isolation via config["configurable"]["checkpoint_ns"]. That does NOT
+        # work: langgraph-checkpoint-aws (like LangGraph's other checkpoint
+        # savers) treats checkpoint_ns as an internal subgraph-nesting concept
+        # that the Pregel runtime recomputes per task -- for a top-level
+        # invoke it is always effectively "" no matter what a caller passes in
+        # configurable.checkpoint_ns. A cross-instance get_tuple() with that
+        # same config therefore returned None in testing; the persisted item's
+        # SK had an empty namespace segment. Verified by reproducing against
+        # langgraph_checkpoint_aws.DynamoDBSaver directly with a minimal
+        # StateGraph both with and without checkpoint_ns set. Prefixing
+        # thread_id itself is what LangGraph actually honors.
+        thread_id = f"ai-dq-agent:{execution_arn}"
         workflow = build_governance_graph()
-        runtime_outcome = workflow.invoke(initial_context)
+        runtime_outcome = workflow.invoke(
+            initial_context,
+            config={"configurable": {"thread_id": thread_id}},
+        )
 
         compliance_result = runtime_outcome.get("validation_status")
         logger.info("agent_workflow_terminated_normally", compliance_outcome=compliance_result)

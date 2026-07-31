@@ -1,8 +1,12 @@
 from unittest.mock import patch
-from langchain_core.messages import AIMessage
+
 from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
+from langchain_core.messages import AIMessage
+from langgraph.checkpoint.memory import InMemorySaver
+
 from src.agent.graph import build_governance_graph
-from src.agent.state import ValidationStatus, DataProfilingMetrics
+from src.agent.state import DataProfilingMetrics, ValidationStatus
+
 
 def test_langgraph_state_machine_execution_flow():
     """
@@ -49,9 +53,16 @@ def test_langgraph_state_machine_execution_flow():
             "distinct_id_estimate": "998"
         }]
 
-        # 3. Assemble and invoke the workflow topology
-        workflow = build_governance_graph()
-        final_state = workflow.invoke(initial_context)
+        # 3. Assemble and invoke the workflow topology. An in-memory checkpointer
+        # is injected here (instead of the real DynamoDB-backed default) so this
+        # smoke test stays fast and hermetic; the DynamoDB wiring itself is
+        # covered separately in test_graph_checkpointing.py. A thread_id is
+        # required in config whenever a checkpointer is configured.
+        workflow = build_governance_graph(checkpointer=InMemorySaver())
+        final_state = workflow.invoke(
+            initial_context,
+            config={"configurable": {"thread_id": initial_context["execution_arn"]}},
+        )
 
         # 4. Rigorous architectural assertions
         assert final_state["validation_status"] == ValidationStatus.COMPLIANT
