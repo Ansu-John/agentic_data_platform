@@ -11,7 +11,7 @@ module "kms" {
 module "s3_datalake" {
   source = "../../../modules/s3_datalake"
 
-  bucket_prefix = "${var.project}-${var.environment}-s3-${var.aws_region}"
+  bucket_prefix = "${var.project}-${var.environment}-s3-ap-s1"
   zones         = var.datalake_zones
   kms_key_arn   = module.kms.key_arn # Passing the output from the KMS module as an input here
 }
