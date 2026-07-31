@@ -8,7 +8,7 @@ data "aws_caller_identity" "current" {}
 data "terraform_remote_state" "foundation" {
   backend = "s3"
   config = {
-    bucket = "dataplatform-dev-tfstate-bucket"
+    bucket = "dataplatform-dev-terraform-state-bucket"
     key    = "dev/01-foundation/terraform.tfstate"
     region = var.aws_region
   }
@@ -18,7 +18,7 @@ data "terraform_remote_state" "foundation" {
 data "terraform_remote_state" "emr_compute" {
   backend = "s3"
   config = {
-    bucket = "dataplatform-dev-tfstate-bucket"
+    bucket = "dataplatform-dev-terraform-state-bucket"
     key    = "dev/02-data-pipeline/terraform.tfstate"
     region = var.aws_region
   }

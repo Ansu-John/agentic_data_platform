@@ -96,8 +96,8 @@ resource "aws_iam_role_policy" "emr_execution_policy" {
         ],
         "Effect" : "Allow",
         "Resource" : [
-          "arn:aws:s3:::dataplatform-dev-s3-ap-south-1-bronze",
-          "arn:aws:s3:::dataplatform-dev-s3-ap-south-1-silver"
+          "arn:aws:s3:::dataplatform-dev-s3-ap-s1-bronze",
+          "arn:aws:s3:::dataplatform-dev-s3-ap-s1-silver"
         ]
       },
       {
@@ -109,8 +109,8 @@ resource "aws_iam_role_policy" "emr_execution_policy" {
         ],
         "Effect" : "Allow",
         "Resource" : [
-          "arn:aws:s3:::dataplatform-dev-s3-ap-south-1-bronze/*",
-          "arn:aws:s3:::dataplatform-dev-s3-ap-south-1-silver/*"
+          "arn:aws:s3:::dataplatform-dev-s3-ap-s1-bronze/*",
+          "arn:aws:s3:::dataplatform-dev-s3-ap-s1-silver/*"
         ]
       },
       {
@@ -309,13 +309,13 @@ module "ingest_trigger" {
 
   function_name       = "${var.project}-${var.environment}-ingest-trigger"
   source_dir          = "../../../../src/lambda/ingest_trigger"
-  trigger_bucket_name = "dataplatform-dev-s3-ap-south-1-bronze"
-  trigger_bucket_arn  = "arn:aws:s3:::dataplatform-dev-s3-ap-south-1-bronze"
+  trigger_bucket_name = "dataplatform-dev-s3-ap-s1-bronze"
+  trigger_bucket_arn  = "arn:aws:s3:::dataplatform-dev-s3-ap-s1-bronze"
 
   environment_variables = {
     ENVIRONMENT       = var.environment
     STEP_FUNCTION_ARN = aws_sfn_state_machine.ingestion_orchestrator.arn
-    SILVER_BUCKET     = "dataplatform-dev-s3-ap-south-1-silver"
+    SILVER_BUCKET     = "dataplatform-dev-s3-ap-s1-silver"
   }
 }
 
@@ -333,7 +333,7 @@ resource "aws_iam_policy" "lambda_sfn_trigger_policy" {
 }
 
 resource "aws_s3_bucket_notification" "bronze_ingest_notification" { # Note: Ensure this bucket name matches exactly what you created!
-  bucket = "dataplatform-dev-s3-ap-south-1-bronze"
+  bucket = "dataplatform-dev-s3-ap-s1-bronze"
 
   lambda_function {
     lambda_function_arn = module.ingest_trigger.lambda_function_arn

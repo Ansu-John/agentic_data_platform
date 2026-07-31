@@ -138,3 +138,4 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         # Applies everything (including EMR updates and the Lambda execution)
         run: terraform apply -auto-approve tfplan
+        
