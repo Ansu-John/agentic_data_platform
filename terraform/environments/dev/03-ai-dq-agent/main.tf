@@ -20,11 +20,11 @@ module "ai_dq_agent_compute" {
   ecr_image_uri      = var.agent_ecr_image_uri
   dynamodb_table_arn = module.dynamodb_checkpoints.table_arn
   silver_bucket_arn  = "arn:aws:s3:::${data.terraform_remote_state.foundation.outputs.datalake_bucket_names["silver"]}"
-  kms_key_arn        = data.terraform_remote_state.foundation.outputs.kms_key_arn
+  kms_key_arn        = data.terraform_remote_state.foundation.outputs.kms_key_arn 
 
   service_name = "ai_dq_agent"
   #task_role_arn      = aws_iam_role.task_role.arn
-  container_port = 8201
+  container_port     = 8201
   #target_group_arn   = module.ecs_fargate.target_group_arn
 
   # Injecting environment variables into the container
@@ -36,6 +36,21 @@ module "ai_dq_agent_compute" {
     ATHENA_WORKGROUP       = "primary"
   }
 }
+# ==============================================================================
+# EVENTBRIDGE TRIGGER (PHASE 2 -> PHASE 3 HANDOFF)
+# ==============================================================================
+# This is now the ONLY EventBridge rule/target wiring this hand-off. A second,
+# near-identical hand-rolled aws_cloudwatch_event_rule/aws_cloudwatch_event_target
+# block used to live here alongside this module call -- both listened for the
+# same Step Functions SUCCEEDED event and both invoked ecs:RunTask against the
+# same agent, double-triggering it on every successful pipeline run. Removed;
+# this module instantiation is the single source of truth for the trigger.
+#
+# Known follow-up (not in this change): modules/eventbridge_ecs_trigger's own
+# iam:PassRole grant (in modules/eventbridge_ecs_trigger/main.tf) is still
+# Resource="*" (narrowed only by an iam:PassedToService condition), not scoped
+# to this agent's specific task/execution roles the way Batch 1 scoped the
+# now-removed duplicate's PassRole. Worth tightening in a later pass.
 module "eventbridge_trigger" {
   source                  = "../../../modules/eventbridge_ecs_trigger"
   project_name            = var.project_name
@@ -45,78 +60,4 @@ module "eventbridge_trigger" {
   ecs_task_definition_arn = module.ai_dq_agent_compute.task_definition_arn
   private_subnet_ids      = local.private_subnet_ids
   ecs_security_group_id   = module.ai_dq_agent_compute.security_group_id
-}
-
-# ==============================================================================
-# EVENTBRIDGE TRIGGER (PHASE 2 -> PHASE 3 HANDOFF)
-# ==============================================================================
-
-resource "aws_cloudwatch_event_rule" "trigger_dq_agent" {
-  name        = "${var.project_name}-${var.environment}-trigger-dq-agent"
-  description = "Triggers the AI DQ Agent when Phase 2 Step Functions succeed."
-
-  event_pattern = jsonencode({
-    "source" : ["aws.states"],
-    "detail-type" : ["Step Functions Execution Status Change"],
-    "detail" : {
-      "status" : ["SUCCEEDED"],
-      "stateMachineArn" : [local.step_function_arn]
-    }
-  })
-}
-
-resource "aws_iam_role" "eventbridge_ecs_invoke_role" {
-  name = "${var.project_name}-${var.environment}-eb-ecs-invoke-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Action    = "sts:AssumeRole",
-      Effect    = "Allow",
-      Principal = { Service = "events.amazonaws.com" }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy" "eventbridge_ecs_invoke_policy" {
-  name = "AllowEventBridgeToRunECS"
-  role = aws_iam_role.eventbridge_ecs_invoke_role.id
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect   = "Allow",
-        Action   = "ecs:RunTask",
-        Resource = "arn:aws:ecs:${var.aws_region}:*:task-definition/${var.project_name}-${var.environment}-dq-agent:*"
-      },
-      {
-        Effect = "Allow",
-        Action = "iam:PassRole",
-        # Scoped to exactly the two roles EventBridge needs to hand off to ECS RunTask
-        # for this agent (task role + execution role) -- not every role in the account.
-        Resource = [
-          module.ai_dq_agent_compute.task_role_arn,
-          module.ai_dq_agent_compute.execution_role_arn
-        ]
-      }
-    ]
-  })
-}
-
-resource "aws_cloudwatch_event_target" "ecs_dq_agent_target" {
-  rule      = aws_cloudwatch_event_rule.trigger_dq_agent.name
-  target_id = "TriggerDQAgentECS"
-  arn       = module.ai_dq_agent_compute.cluster_arn
-  role_arn  = aws_iam_role.eventbridge_ecs_invoke_role.arn
-
-  ecs_target {
-    task_definition_arn = replace(module.ai_dq_agent_compute.task_definition_arn, "/:\\d+$/", "")
-    launch_type         = "FARGATE"
-
-    network_configuration {
-      subnets          = local.private_subnet_ids
-      security_groups  = [module.ai_dq_agent_compute.security_group_id]
-      assign_public_ip = false
-    }
-  }
-
 }
