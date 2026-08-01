@@ -14,24 +14,42 @@ name: Destroy Dev Environment (Full Teardown - Cost Pause)
 # data.terraform_remote_state -- destroying 01 first would leave 02/03/04
 # pointing at a VPC/KMS key that no longer exists.
 #
+# RESILIENCE: every phase runs regardless of whether an earlier phase
+# succeeded, failed, or had already been destroyed out-of-band. A failed
+# phase does NOT block later phases -- the intent is "destroy everything
+# that's still destroyable and tell me exactly what wasn't and why," not
+# "stop at the first error." A final summary job always runs afterwards and
+# posts a components-deleted / components-not-deleted report (with reasons
+# and manual remediation commands) to the workflow run's summary page.
+#
+# KNOWN FAILURE MODE THIS WORKFLOW WAS HARDENED AGAINST: 04-consumption reads
+# 03-ai-dq-agent's remote state (security group, DynamoDB checkpoint table
+# ARN) for resources unrelated to why you're tearing things down. If
+# 03-ai-dq-agent's infrastructure is ever already gone when 04-consumption's
+# destroy runs (e.g. a previous partial run, or phases destroyed out of
+# order by hand), that used to hard-fail 04-consumption's ENTIRE plan before
+# Terraform could touch anything -- including its own ALB/ECS/ECR that have
+# nothing to do with 03. Terraform code in 04-consumption/main.tf now wraps
+# those specific cross-stack reads in try() so a missing upstream stack no
+# longer blocks this stack's own teardown. See that file's comments for the
+# full explanation. Other remaining-state issues (e.g. non-empty S3 buckets
+# blocking 01-foundation) are real, not artifacts of this bug, and are
+# reported by the summary job with remediation steps.
+#
 # SAFETY NOTES (read before running):
 #   - The S3 data-lake module does NOT set force_destroy, so Terraform will
 #     refuse to delete the bronze/silver/gold/quarantine buckets if they
-#     still contain objects. That's a deliberate safety net, not a bug -- if
-#     the 01-foundation destroy job fails on a BucketNotEmpty error, empty
-#     the buckets yourself (or explicitly accept the data loss) before
-#     re-running this workflow.
+#     still contain objects. That's a deliberate safety net, not a bug -- the
+#     summary job will call this out by name if 01-foundation fails for this
+#     reason.
 #   - The Aurora vector_db cluster in 02-data-pipeline is created with
 #     skip_final_snapshot = true, so destroying 02-data-pipeline permanently
 #     deletes any embeddings/data in it -- there is no snapshot to restore
 #     from. Only run this if that's acceptable for a dev pause.
 #   - Re-provisioning afterwards means re-running deploy-foundation.yml,
 #     deploy-phase2.yml, deploy-phase3.yml, and deploy-phase4.yml in that
-#     order (each is push-triggered off its own path, or you can dispatch
-#     deploy-phase4.yml manually; the other three currently only trigger on
-#     push to main, so re-running them after a full teardown may require a
-#     no-op commit touching each phase's path, or converting them to also
-#     accept workflow_dispatch).
+#     order. Only phase 4 currently has workflow_dispatch; the other three
+#     trigger on push to main only.
 
 on:
   workflow_dispatch:
@@ -57,6 +75,11 @@ jobs:
     environment: dev-admin # Recommend restricting this environment to lead engineers
     env:
       TF_WORKING_DIR: 'terraform/environments/dev/04-consumption'
+    outputs:
+      status: ${{ steps.outcome.outputs.status }}
+      remaining_count: ${{ steps.outcome.outputs.remaining_count }}
+      remaining_resources: ${{ steps.outcome.outputs.remaining_resources }}
+      reason: ${{ steps.outcome.outputs.reason }}
     steps:
       - uses: actions/checkout@v4
 
@@ -76,18 +99,47 @@ jobs:
         run: terraform init
 
       - name: Terraform Destroy
+        id: destroy
         working-directory: ${{ env.TF_WORKING_DIR }}
         # api_image_tag/ui_image_tag both default to "latest" -- no extra
         # -var flags needed for destroy to evaluate the config.
-        run: terraform destroy -auto-approve
+        run: terraform destroy -auto-approve 2>&1 | tee /tmp/destroy.log
+        continue-on-error: true
+
+      - name: Record Destroy Outcome
+        id: outcome
+        if: always()
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "status=${{ steps.destroy.outcome }}" | sed 's/success/DESTROYED/;s/failure/FAILED/' >> /tmp/status_raw
+          REMAINING=$(terraform state list 2>/dev/null | wc -l | tr -d ' ')
+          REMAINING_LIST=$(terraform state list 2>/dev/null | head -20 | tr '\n' ';' | sed 's/;$//')
+          if [ "$REMAINING" = "0" ]; then
+            STATUS="DESTROYED"
+          else
+            STATUS="FAILED"
+          fi
+          REASON=$(tail -n 15 /tmp/destroy.log | tr -d '\000' | tr '\n' ' ' | sed 's/"/\x27/g' | cut -c1-600)
+          {
+            echo "status=$STATUS"
+            echo "remaining_count=$REMAINING"
+            echo "remaining_resources=$REMAINING_LIST"
+            echo "reason=$REASON"
+          } >> "$GITHUB_OUTPUT"
 
   destroy-ai-dq-agent:
     name: "2. Destroy 03-ai-dq-agent"
     needs: destroy-consumption
+    if: inputs.confirm_destroy == 'DESTROY' && !cancelled()
     runs-on: ubuntu-latest
     environment: dev-admin
     env:
       TF_WORKING_DIR: 'terraform/environments/dev/03-ai-dq-agent'
+    outputs:
+      status: ${{ steps.outcome.outputs.status }}
+      remaining_count: ${{ steps.outcome.outputs.remaining_count }}
+      remaining_resources: ${{ steps.outcome.outputs.remaining_resources }}
+      reason: ${{ steps.outcome.outputs.reason }}
     steps:
       - uses: actions/checkout@v4
 
@@ -107,6 +159,7 @@ jobs:
         run: terraform init
 
       - name: Terraform Destroy
+        id: destroy
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
           # agent_ecr_image_uri has no default and isn't in terraform.tfvars
@@ -114,15 +167,42 @@ jobs:
           # Destroy only needs *a* value to evaluate the config graph -- the
           # ECR repo and its images are being deleted regardless of this URI.
           TF_VAR_agent_ecr_image_uri: "placeholder-for-destroy"
-        run: terraform destroy -auto-approve
+        run: terraform destroy -auto-approve 2>&1 | tee /tmp/destroy.log
+        continue-on-error: true
+
+      - name: Record Destroy Outcome
+        id: outcome
+        if: always()
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          REMAINING=$(terraform state list 2>/dev/null | wc -l | tr -d ' ')
+          REMAINING_LIST=$(terraform state list 2>/dev/null | head -20 | tr '\n' ';' | sed 's/;$//')
+          if [ "$REMAINING" = "0" ]; then
+            STATUS="DESTROYED"
+          else
+            STATUS="FAILED"
+          fi
+          REASON=$(tail -n 15 /tmp/destroy.log | tr -d '\000' | tr '\n' ' ' | sed 's/"/\x27/g' | cut -c1-600)
+          {
+            echo "status=$STATUS"
+            echo "remaining_count=$REMAINING"
+            echo "remaining_resources=$REMAINING_LIST"
+            echo "reason=$REASON"
+          } >> "$GITHUB_OUTPUT"
 
   destroy-data-pipeline:
     name: "3. Destroy 02-data-pipeline (EMR, Lambda, Aurora vector_db)"
     needs: destroy-ai-dq-agent
+    if: inputs.confirm_destroy == 'DESTROY' && !cancelled()
     runs-on: ubuntu-latest
     environment: dev-admin
     env:
       TF_WORKING_DIR: 'terraform/environments/dev/02-data-pipeline'
+    outputs:
+      status: ${{ steps.outcome.outputs.status }}
+      remaining_count: ${{ steps.outcome.outputs.remaining_count }}
+      remaining_resources: ${{ steps.outcome.outputs.remaining_resources }}
+      reason: ${{ steps.outcome.outputs.reason }}
     steps:
       - uses: actions/checkout@v4
 
@@ -142,21 +222,49 @@ jobs:
         run: terraform init
 
       - name: Terraform Destroy
+        id: destroy
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
           # image_tag has no default and isn't in terraform.tfvars (normally
           # comes from ${{ github.sha }} at apply-time). Any value works for
           # destroy since it's just needed to evaluate the config graph.
           TF_VAR_image_tag: "placeholder-for-destroy"
-        run: terraform destroy -auto-approve
+        run: terraform destroy -auto-approve 2>&1 | tee /tmp/destroy.log
+        continue-on-error: true
+
+      - name: Record Destroy Outcome
+        id: outcome
+        if: always()
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          REMAINING=$(terraform state list 2>/dev/null | wc -l | tr -d ' ')
+          REMAINING_LIST=$(terraform state list 2>/dev/null | head -20 | tr '\n' ';' | sed 's/;$//')
+          if [ "$REMAINING" = "0" ]; then
+            STATUS="DESTROYED"
+          else
+            STATUS="FAILED"
+          fi
+          REASON=$(tail -n 15 /tmp/destroy.log | tr -d '\000' | tr '\n' ' ' | sed 's/"/\x27/g' | cut -c1-600)
+          {
+            echo "status=$STATUS"
+            echo "remaining_count=$REMAINING"
+            echo "remaining_resources=$REMAINING_LIST"
+            echo "reason=$REASON"
+          } >> "$GITHUB_OUTPUT"
 
   destroy-foundation:
     name: "4. Destroy 01-foundation (VPC, NAT Gateway, S3, KMS)"
     needs: destroy-data-pipeline
+    if: inputs.confirm_destroy == 'DESTROY' && !cancelled()
     runs-on: ubuntu-latest
     environment: dev-admin
     env:
       TF_WORKING_DIR: 'terraform/environments/dev/01-foundation'
+    outputs:
+      status: ${{ steps.outcome.outputs.status }}
+      remaining_count: ${{ steps.outcome.outputs.remaining_count }}
+      remaining_resources: ${{ steps.outcome.outputs.remaining_resources }}
+      reason: ${{ steps.outcome.outputs.reason }}
     steps:
       - uses: actions/checkout@v4
 
@@ -176,9 +284,164 @@ jobs:
         run: terraform init
 
       - name: Terraform Destroy
+        id: destroy
         working-directory: ${{ env.TF_WORKING_DIR }}
         # If this fails with BucketNotEmpty: the s3_datalake module has no
         # force_destroy set (deliberately -- see the workflow header comment
-        # above). Empty the bronze/silver/gold/quarantine buckets first, or
-        # accept the data loss and re-run.
-        run: terraform destroy -auto-approve
+        # above). The summary job below detects this specific error text and
+        # calls it out with the emptying commands you'd need to run first.
+        run: terraform destroy -auto-approve 2>&1 | tee /tmp/destroy.log
+        continue-on-error: true
+
+      - name: Record Destroy Outcome
+        id: outcome
+        if: always()
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          REMAINING=$(terraform state list 2>/dev/null | wc -l | tr -d ' ')
+          REMAINING_LIST=$(terraform state list 2>/dev/null | head -20 | tr '\n' ';' | sed 's/;$//')
+          if [ "$REMAINING" = "0" ]; then
+            STATUS="DESTROYED"
+          else
+            STATUS="FAILED"
+          fi
+          REASON=$(tail -n 15 /tmp/destroy.log | tr -d '\000' | tr '\n' ' ' | sed 's/"/\x27/g' | cut -c1-600)
+          {
+            echo "status=$STATUS"
+            echo "remaining_count=$REMAINING"
+            echo "remaining_resources=$REMAINING_LIST"
+            echo "reason=$REASON"
+          } >> "$GITHUB_OUTPUT"
+
+  summary:
+    name: "5. Teardown Summary Report"
+    needs:
+      - destroy-consumption
+      - destroy-ai-dq-agent
+      - destroy-data-pipeline
+      - destroy-foundation
+    if: inputs.confirm_destroy == 'DESTROY' && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build Summary Report
+        env:
+          CONSUMPTION_STATUS: ${{ needs.destroy-consumption.outputs.status }}
+          CONSUMPTION_REMAINING: ${{ needs.destroy-consumption.outputs.remaining_count }}
+          CONSUMPTION_LIST: ${{ needs.destroy-consumption.outputs.remaining_resources }}
+          CONSUMPTION_REASON: ${{ needs.destroy-consumption.outputs.reason }}
+          AGENT_STATUS: ${{ needs.destroy-ai-dq-agent.outputs.status }}
+          AGENT_REMAINING: ${{ needs.destroy-ai-dq-agent.outputs.remaining_count }}
+          AGENT_LIST: ${{ needs.destroy-ai-dq-agent.outputs.remaining_resources }}
+          AGENT_REASON: ${{ needs.destroy-ai-dq-agent.outputs.reason }}
+          PIPELINE_STATUS: ${{ needs.destroy-data-pipeline.outputs.status }}
+          PIPELINE_REMAINING: ${{ needs.destroy-data-pipeline.outputs.remaining_count }}
+          PIPELINE_LIST: ${{ needs.destroy-data-pipeline.outputs.remaining_resources }}
+          PIPELINE_REASON: ${{ needs.destroy-data-pipeline.outputs.reason }}
+          FOUNDATION_STATUS: ${{ needs.destroy-foundation.outputs.status }}
+          FOUNDATION_REMAINING: ${{ needs.destroy-foundation.outputs.remaining_count }}
+          FOUNDATION_LIST: ${{ needs.destroy-foundation.outputs.remaining_resources }}
+          FOUNDATION_REASON: ${{ needs.destroy-foundation.outputs.reason }}
+        run: |
+          {
+            echo "# Dev Environment Teardown Summary"
+            echo ""
+            echo "| Phase | Status | Resources left in state |"
+            echo "|---|---|---|"
+            echo "| 04-consumption | ${CONSUMPTION_STATUS:-SKIPPED} | ${CONSUMPTION_REMAINING:-?} |"
+            echo "| 03-ai-dq-agent | ${AGENT_STATUS:-SKIPPED} | ${AGENT_REMAINING:-?} |"
+            echo "| 02-data-pipeline | ${PIPELINE_STATUS:-SKIPPED} | ${PIPELINE_REMAINING:-?} |"
+            echo "| 01-foundation | ${FOUNDATION_STATUS:-SKIPPED} | ${FOUNDATION_REMAINING:-?} |"
+            echo ""
+
+            report_phase () {
+              PHASE_NAME="$1"; STATUS="$2"; DIR="$3"; RLIST="$4"; REASON="$5"
+
+              if [ "$STATUS" = "DESTROYED" ]; then
+                echo "## $PHASE_NAME -- DESTROYED"
+                echo "All tracked resources removed. Nothing to do."
+                echo ""
+                return
+              fi
+
+              if [ "$STATUS" = "SKIPPED" ] || [ -z "$STATUS" ]; then
+                echo "## $PHASE_NAME -- SKIPPED"
+                echo "This phase's job never ran (workflow was cancelled). Re-run the workflow to attempt it."
+                echo ""
+                return
+              fi
+
+              echo "## $PHASE_NAME -- FAILED / INCOMPLETE"
+              echo ""
+              echo "**Resources still tracked in state ($RLIST):**"
+              echo '```'
+              echo "$RLIST" | tr ';' '\n'
+              echo '```'
+              echo ""
+              echo "**Last lines of terraform destroy output:**"
+              echo '```'
+              echo "$REASON"
+              echo '```'
+              echo ""
+
+              case "$REASON" in
+                *BucketNotEmpty*|*"bucket you tried to delete is not empty"*)
+                  echo "**Likely cause:** the S3 data-lake buckets still contain objects."
+                  echo "s3_datalake has no force_destroy set (deliberate safety net), so"
+                  echo "Terraform refuses to delete non-empty buckets."
+                  echo ""
+                  echo "**Manual fix:**"
+                  echo '```bash'
+                  echo "aws s3 rm s3://dataplatform-dev-s3-ap-s1-bronze --recursive"
+                  echo "aws s3 rm s3://dataplatform-dev-s3-ap-s1-silver --recursive"
+                  echo "aws s3 rm s3://dataplatform-dev-s3-ap-s1-gold --recursive"
+                  echo "aws s3 rm s3://dataplatform-dev-s3-ap-s1-quarantine --recursive"
+                  echo "# then re-run this workflow, or:"
+                  echo "cd $DIR && terraform destroy -auto-approve"
+                  echo '```'
+                  ;;
+                *"couldn't find resource"*|*"is object with no attributes"*|*"Unsupported attribute"*)
+                  echo "**Likely cause:** a cross-stack data.terraform_remote_state / data source"
+                  echo "reference pointed at a stack that was already destroyed (e.g. phases were"
+                  echo "torn down out of order previously, or a state file is missing/empty)."
+                  echo ""
+                  echo "**Manual fix:** confirm which upstream stack is missing, then either"
+                  echo "restore/re-apply it first, or (if you're intentionally abandoning it)"
+                  echo "remove the dangling resource(s) from THIS stack's state so destroy can"
+                  echo "proceed without needing the missing data:"
+                  echo '```bash'
+                  echo "cd $DIR"
+                  echo "terraform state list          # see what remains"
+                  echo "terraform destroy -target=<resource_address> -auto-approve  # retry narrowly"
+                  echo '```'
+                  ;;
+                *"DependencyViolation"*|*"has dependent objects"*|*"is being referenced"*)
+                  echo "**Likely cause:** AWS-side dependency (e.g. a security group still attached"
+                  echo "to an ENI, or a subnet still in use) blocked deletion of a resource this"
+                  echo "stack owns."
+                  echo ""
+                  echo "**Manual fix:** identify the blocking dependency in the AWS Console for the"
+                  echo "resource named above, detach/delete it, then re-run:"
+                  echo '```bash'
+                  echo "cd $DIR && terraform destroy -auto-approve"
+                  echo '```'
+                  ;;
+                *)
+                  echo "**Manual fix:** re-run the destroy for this phase directly, which will show"
+                  echo "the full error (only the last 15 lines are captured above):"
+                  echo '```bash'
+                  echo "cd $DIR"
+                  echo "terraform init"
+                  echo "terraform destroy -auto-approve"
+                  echo '```'
+                  ;;
+              esac
+              echo ""
+            }
+
+            report_phase "04-consumption"   "${CONSUMPTION_STATUS:-SKIPPED}" "terraform/environments/dev/04-consumption"   "$CONSUMPTION_LIST" "$CONSUMPTION_REASON"
+            report_phase "03-ai-dq-agent"   "${AGENT_STATUS:-SKIPPED}"       "terraform/environments/dev/03-ai-dq-agent"   "$AGENT_LIST"       "$AGENT_REASON"
+            report_phase "02-data-pipeline" "${PIPELINE_STATUS:-SKIPPED}"    "terraform/environments/dev/02-data-pipeline" "$PIPELINE_LIST"    "$PIPELINE_REASON"
+            report_phase "01-foundation"    "${FOUNDATION_STATUS:-SKIPPED}"  "terraform/environments/dev/01-foundation"    "$FOUNDATION_LIST"  "$FOUNDATION_REASON"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Summary written to this run's Summary tab."
