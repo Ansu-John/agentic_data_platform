@@ -1,0 +1,184 @@
+name: Destroy Dev Environment (Full Teardown - Cost Pause)
+
+# Tears down all four dev environment layers to stop 24/7 billing while the
+# platform sits idle between development sessions:
+#   - 04-consumption:   ALB + always-on ECS Fargate services (nlq-api,
+#                       streamlit-ui) + Redshift Serverless workgroup
+#   - 03-ai-dq-agent:   ECR repo + LangGraph DQ agent compute
+#   - 02-data-pipeline: EMR Serverless app, Lambda trigger, Step Functions,
+#                       and the Aurora Serverless v2 vector_db cluster
+#   - 01-foundation:    VPC + NAT Gateway, S3 data-lake buckets, KMS key
+#
+# Destroy order is the REVERSE of deploy order (04 -> 03 -> 02 -> 01) because
+# 02/03/04 all read 01's (and, for 04, also 02/03's) outputs via
+# data.terraform_remote_state -- destroying 01 first would leave 02/03/04
+# pointing at a VPC/KMS key that no longer exists.
+#
+# SAFETY NOTES (read before running):
+#   - The S3 data-lake module does NOT set force_destroy, so Terraform will
+#     refuse to delete the bronze/silver/gold/quarantine buckets if they
+#     still contain objects. That's a deliberate safety net, not a bug -- if
+#     the 01-foundation destroy job fails on a BucketNotEmpty error, empty
+#     the buckets yourself (or explicitly accept the data loss) before
+#     re-running this workflow.
+#   - The Aurora vector_db cluster in 02-data-pipeline is created with
+#     skip_final_snapshot = true, so destroying 02-data-pipeline permanently
+#     deletes any embeddings/data in it -- there is no snapshot to restore
+#     from. Only run this if that's acceptable for a dev pause.
+#   - Re-provisioning afterwards means re-running deploy-foundation.yml,
+#     deploy-phase2.yml, deploy-phase3.yml, and deploy-phase4.yml in that
+#     order (each is push-triggered off its own path, or you can dispatch
+#     deploy-phase4.yml manually; the other three currently only trigger on
+#     push to main, so re-running them after a full teardown may require a
+#     no-op commit touching each phase's path, or converting them to also
+#     accept workflow_dispatch).
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_destroy:
+        description: 'Type "DESTROY" to confirm full teardown of ALL FOUR dev layers'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: 'ap-south-1'
+  AWS_ROLE_ARN: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role"
+
+jobs:
+  destroy-consumption:
+    name: "1. Destroy 04-consumption (ALB, ECS services, Redshift)"
+    if: inputs.confirm_destroy == 'DESTROY'
+    runs-on: ubuntu-latest
+    environment: dev-admin # Recommend restricting this environment to lead engineers
+    env:
+      TF_WORKING_DIR: 'terraform/environments/dev/04-consumption'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ">= 1.5.0"
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Destroy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        # api_image_tag/ui_image_tag both default to "latest" -- no extra
+        # -var flags needed for destroy to evaluate the config.
+        run: terraform destroy -auto-approve
+
+  destroy-ai-dq-agent:
+    name: "2. Destroy 03-ai-dq-agent"
+    needs: destroy-consumption
+    runs-on: ubuntu-latest
+    environment: dev-admin
+    env:
+      TF_WORKING_DIR: 'terraform/environments/dev/03-ai-dq-agent'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ">= 1.5.0"
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Destroy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          # agent_ecr_image_uri has no default and isn't in terraform.tfvars
+          # (it's normally injected at apply-time from the just-built image).
+          # Destroy only needs *a* value to evaluate the config graph -- the
+          # ECR repo and its images are being deleted regardless of this URI.
+          TF_VAR_agent_ecr_image_uri: "placeholder-for-destroy"
+        run: terraform destroy -auto-approve
+
+  destroy-data-pipeline:
+    name: "3. Destroy 02-data-pipeline (EMR, Lambda, Aurora vector_db)"
+    needs: destroy-ai-dq-agent
+    runs-on: ubuntu-latest
+    environment: dev-admin
+    env:
+      TF_WORKING_DIR: 'terraform/environments/dev/02-data-pipeline'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ">= 1.5.0"
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Destroy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          # image_tag has no default and isn't in terraform.tfvars (normally
+          # comes from ${{ github.sha }} at apply-time). Any value works for
+          # destroy since it's just needed to evaluate the config graph.
+          TF_VAR_image_tag: "placeholder-for-destroy"
+        run: terraform destroy -auto-approve
+
+  destroy-foundation:
+    name: "4. Destroy 01-foundation (VPC, NAT Gateway, S3, KMS)"
+    needs: destroy-data-pipeline
+    runs-on: ubuntu-latest
+    environment: dev-admin
+    env:
+      TF_WORKING_DIR: 'terraform/environments/dev/01-foundation'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ">= 1.5.0"
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Destroy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        # If this fails with BucketNotEmpty: the s3_datalake module has no
+        # force_destroy set (deliberately -- see the workflow header comment
+        # above). Empty the bronze/silver/gold/quarantine buckets first, or
+        # accept the data loss and re-run.
+        run: terraform destroy -auto-approve
