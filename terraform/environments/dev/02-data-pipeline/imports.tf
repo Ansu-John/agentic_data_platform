@@ -1,3 +1,4 @@
+# Only use the imports if the resources are already created
 import {
   to = aws_iam_role.emr_execution_role
   id = "dataplatform-dev-emr-exec-role"
