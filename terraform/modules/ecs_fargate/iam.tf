@@ -13,6 +13,10 @@ resource "aws_iam_role" "execution_role" {
   })
 }
 
+resource "aws_iam_service_linked_role" "ecs" {
+  aws_service_name = "ecs.amazonaws.com"
+}
+
 resource "aws_iam_role_policy" "ecs_task_athena_s3_kms_policy" {
   name = "TaskRoleAthenaFullAccess"
   role = aws_iam_role.task_role.id

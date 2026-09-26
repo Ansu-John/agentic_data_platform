@@ -108,4 +108,3 @@ jobs:
           TF_VAR_agent_ecr_image_uri: ${{ steps.build-image.outputs.image_uri }}
         run: terraform apply -auto-approve
         
-        
