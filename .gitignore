@@ -17,6 +17,9 @@ crash.*.log
 env/
 venv/
 
+docs/
+src/dbt/logs/
+
 # Tool Caches
 .pytest_cache/
 .mypy_cache/

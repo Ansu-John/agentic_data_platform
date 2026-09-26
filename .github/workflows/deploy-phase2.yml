@@ -139,3 +139,4 @@ jobs:
         # Applies everything (including EMR updates and the Lambda execution)
         run: terraform apply -auto-approve tfplan
         
+        
