@@ -15,7 +15,7 @@ import {
 
 import {
   to = module.glue_catalog.aws_glue_catalog_database.this
-  id = "dataplatform_dev_ai_catalog"
+  id = ${data.aws_caller_identity.current.account_id}:"dataplatform_dev_ai_catalog"
 }
 
 import {
