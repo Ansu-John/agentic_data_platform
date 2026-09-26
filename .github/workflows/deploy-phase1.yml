@@ -80,5 +80,3 @@ jobs:
         run: terraform apply -auto-approve
         env:
           TF_VAR_zones: '["bronze", "silver", "gold", "quarantine"]'
-        run: terraform state rm dataplatform-dev-db-subnet-group
-          

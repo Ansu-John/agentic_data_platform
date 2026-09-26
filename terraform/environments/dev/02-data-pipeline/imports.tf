@@ -28,3 +28,13 @@ import {
   to = module.ingest_trigger.aws_iam_policy.s3_read
   id = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/dataplatform-dev-ingest-trigger-s3-read-policy"
 }
+
+import {
+  to = aws_ssm_parameter.db_host
+  id = "/dataplatform/dev/db_host"
+}
+
+import {
+  to = module.db_init_lambda.aws_iam_role.lambda_role
+  id = "dataplatform-dev-db-init-role"
+}
