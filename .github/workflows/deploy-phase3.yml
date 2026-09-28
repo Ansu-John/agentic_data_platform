@@ -73,6 +73,13 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init
 
+        # --- ADD THIS TEMPORARY STEP ---
+      - name: Untrack Service Linked Role in State
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform state list | grep "aws_iam_service_linked_role" | xargs -r terraform state rm || true
+      # --------------------------------
+
       # PHASE 1: Build ONLY the ECR Repository first
       - name: Terraform Target (ECR Repository)
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -107,5 +114,5 @@ jobs:
           # This environment variable fulfills the required Terraform variable automatically
           TF_VAR_agent_ecr_image_uri: ${{ steps.build-image.outputs.image_uri }}
         run: terraform apply -auto-approve
-        
+
         
