@@ -10,14 +10,19 @@ on:
       - 'src/dbt/**'
       - 'terraform/environments/dev/04-consumption/**'
       - ".github/workflows/deploy-phase4.yml"
-  workflow_dispatch: # Allows manual trigger from the GitHub UI
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target Environment (dev or prod)'
+        required: true
+        type: environment
+        default: 'dev'
 
 permissions:
   id-token: write
   contents: read
 
 env:
-  AWS_REGION: "ap-south-1"
   OIDC_ROLE_ARN: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role"
   TF_WORKING_DIR: "terraform/environments/dev/04-consumption"
 
@@ -25,6 +30,7 @@ jobs:
   build-and-deploy:
     name: Build Containers, Apply Infrastructure & Materialize Gold
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'dev' }}
     
     steps:
       - name: Checkout Repository
@@ -34,7 +40,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.OIDC_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       # 1. SETUP AND INIT TERRAFORM FIRST
       - name: Setup Terraform
@@ -123,6 +129,6 @@ jobs:
             --task-definition "dataplatform-dev-dbt-runner" \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}],assignPublicIp=DISABLED}" \
-            --region ${{ env.AWS_REGION }}
+            --region ${{ vars.AWS_REGION }}
             
             
