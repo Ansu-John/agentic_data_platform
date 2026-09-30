@@ -10,6 +10,13 @@ on:
       - 'src/db/**'
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target Environment (dev or prod)'
+        required: true
+        type: environment
+        default: 'dev'
 
 permissions:
   id-token: write
@@ -18,14 +25,12 @@ permissions:
 
 env:
   TF_WORKING_DIR: 'terraform/environments/dev/02-data-pipeline'
-  AWS_REGION: 'ap-south-1'
-  PROJECT: 'dataplatform'
-  ENVIRONMENT: 'dev'
   TF_VAR_image_tag: ${{ github.sha }}
 
 jobs:
   validate-and-deploy:
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'dev' }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -34,7 +39,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -67,7 +72,7 @@ jobs:
       - name: Build, tag, and push Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ env.PROJECT }}-${{ env.ENVIRONMENT }}-spark-jobs
+          ECR_REPOSITORY: ${{ vars.PROJECT }}-${{ vars.ENVIRONMENT }}-spark-jobs
           IMAGE_TAG: ${{ github.sha }}
         working-directory: src/spark
         run: |
@@ -86,7 +91,7 @@ jobs:
           
       - name: Force Stop EMR App for Terraform Update
         env:
-          APP_NAME: "${{ env.PROJECT }}-${{ env.ENVIRONMENT }}-spark-engine"
+          APP_NAME: "${{ vars.PROJECT }}-${{ vars.ENVIRONMENT }}-spark-engine"
         run: |
           APP_ID=$(aws emr-serverless list-applications --query "applications[?name=='$APP_NAME'].id" --output text)
           if [ "$APP_ID" != "None" ] && [ -n "$APP_ID" ]; then
