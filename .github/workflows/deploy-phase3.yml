@@ -28,7 +28,6 @@ jobs:
   validate-and-test:
     name: Code Quality & Testing
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment || 'dev' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -61,6 +60,7 @@ jobs:
     name: Enterprise Multi-Step Deployment
     needs: validate-and-test
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'dev' }}
 
     steps:
       - uses: actions/checkout@v4
