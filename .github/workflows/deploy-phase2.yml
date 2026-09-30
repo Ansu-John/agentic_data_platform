@@ -72,7 +72,7 @@ jobs:
       - name: Build, tag, and push Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ vars.PROJECT }}-${{ vars.ENVIRONMENT }}-spark-jobs
+          ECR_REPOSITORY: ${{ vars.PROJECT }}-${{ inputs.environment || 'dev' }}-spark-jobs
           IMAGE_TAG: ${{ github.sha }}
         working-directory: src/spark
         run: |
@@ -91,7 +91,7 @@ jobs:
           
       - name: Force Stop EMR App for Terraform Update
         env:
-          APP_NAME: "${{ vars.PROJECT }}-${{ vars.ENVIRONMENT }}-spark-engine"
+          APP_NAME: "${{ vars.PROJECT }}-${{ inputs.environment || 'dev' }}-spark-engine"
         run: |
           APP_ID=$(aws emr-serverless list-applications --query "applications[?name=='$APP_NAME'].id" --output text)
           if [ "$APP_ID" != "None" ] && [ -n "$APP_ID" ]; then
