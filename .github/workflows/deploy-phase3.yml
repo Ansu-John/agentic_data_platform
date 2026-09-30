@@ -7,13 +7,19 @@ on:
       - "src/agent/**"
       - "terraform/environments/dev/03-ai-dq-agent/**"
       - ".github/workflows/deploy-phase3.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target Environment (dev or prod)'
+        required: true
+        type: environment
+        default: 'dev'
 
 permissions:
   id-token: write
   contents: read
 
 env:
-  AWS_REGION: "ap-south-1"
   ECR_REPOSITORY: "dataplatform-ai-dq-agent"
   TF_WORKING_DIR: "terraform/environments/dev/03-ai-dq-agent"
   AWS_ROLE_ARN: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role"
@@ -22,6 +28,7 @@ jobs:
   validate-and-test:
     name: Code Quality & Testing
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'dev' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -62,7 +69,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
