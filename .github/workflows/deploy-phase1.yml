@@ -11,6 +11,13 @@ on:
     paths:
       - 'terraform/environments/dev/01-foundation/**'
       - ".github/workflows/deploy-phase1.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target Environment (dev or prod)'
+        required: true
+        type: environment
+        default: 'dev'
 
 permissions:
   id-token: write # Required for AWS OIDC
@@ -19,7 +26,7 @@ permissions:
 
 env:
   TF_WORKING_DIR: 'terraform/environments/dev/01-foundation'
-  AWS_REGION: 'ap-south-1'
+  AWS_REGION: ${{ vars.AWS_REGION }}
 
 jobs:
   validate-and-plan:
