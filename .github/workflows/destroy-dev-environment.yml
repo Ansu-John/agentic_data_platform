@@ -1,4 +1,4 @@
-name: Destroy Dev Environment (Full Teardown - Cost Pause)
+name: Destroy AWS Environment (Full Teardown - Cost Pause)
 
 # Tears down all four dev environment layers to stop 24/7 billing while the
 # platform sits idle between development sessions:
@@ -58,21 +58,26 @@ on:
         description: 'Type "DESTROY" to confirm full teardown of ALL FOUR dev layers'
         required: true
         type: string
+      environment:
+        description: 'Target Environment (dev or prod)'
+        required: true
+        type: environment
+        default: 'dev'
 
 permissions:
   id-token: write
   contents: read
 
 env:
-  AWS_REGION: 'ap-south-1'
   AWS_ROLE_ARN: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role"
+  
 
 jobs:
   destroy-consumption:
     name: "1. Destroy 04-consumption (ALB, ECS services, Redshift)"
     if: inputs.confirm_destroy == 'DESTROY'
     runs-on: ubuntu-latest
-    environment: dev-admin # Recommend restricting this environment to lead engineers
+    environment: ${{ inputs.environment || 'dev' }}
     env:
       TF_WORKING_DIR: 'terraform/environments/dev/04-consumption'
     outputs:
@@ -87,7 +92,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -131,8 +136,8 @@ jobs:
     name: "2. Destroy 03-ai-dq-agent"
     needs: destroy-consumption
     if: inputs.confirm_destroy == 'DESTROY' && !cancelled()
-    runs-on: ubuntu-latest
-    environment: dev-admin
+    runs-on: ubuntu-latest    
+    environment: ${{ inputs.environment || 'dev' }}
     env:
       TF_WORKING_DIR: 'terraform/environments/dev/03-ai-dq-agent'
     outputs:
@@ -147,7 +152,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -195,7 +200,7 @@ jobs:
     needs: destroy-ai-dq-agent
     if: inputs.confirm_destroy == 'DESTROY' && !cancelled()
     runs-on: ubuntu-latest
-    environment: dev-admin
+    environment: ${{ inputs.environment || 'dev' }}
     env:
       TF_WORKING_DIR: 'terraform/environments/dev/02-data-pipeline'
     outputs:
@@ -210,7 +215,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -257,7 +262,7 @@ jobs:
     needs: destroy-data-pipeline
     if: inputs.confirm_destroy == 'DESTROY' && !cancelled()
     runs-on: ubuntu-latest
-    environment: dev-admin
+    environment: ${{ inputs.environment || 'dev' }}
     env:
       TF_WORKING_DIR: 'terraform/environments/dev/01-foundation'
     outputs:
@@ -272,7 +277,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
