@@ -13,7 +13,7 @@ module "s3_datalake" {
 
   bucket_prefix = "${var.project}-${var.environment}-s3-ap-s1"
   zones         = var.datalake_zones
-  kms_key_arn   = module.kms.key_arn 
+  kms_key_arn   = module.kms.key_arn
 }
 
 module "vpc" {
